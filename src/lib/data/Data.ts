@@ -5,7 +5,7 @@ import { DataParameters } from "./DataParameters"
  * @brief A Data represents one and only one measure
  * @category Data
  */
-export abstract class Data {
+export abstract class Data  {
     protected weight_: number = 1
     protected active_ = true
     //private userSpace_ : UserSpace = UserSpace.INVERSE
