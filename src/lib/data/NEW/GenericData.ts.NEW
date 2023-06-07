@@ -1,0 +1,46 @@
+import { Matrix3x3, Vector3 } from "../types"
+import { Data, DataParameters } from "./Data"
+
+export type CostFunction = ({ displ, strain, stress }: { displ?: Vector3, strain?: Matrix3x3, stress?: Matrix3x3 }) => number
+export type CheckFunction = ({ displ, strain, stress }: { displ?: Vector3, strain?: Matrix3x3, stress?: Matrix3x3 }) => boolean
+
+/**
+ * @example
+ * ```ts
+ * const c = new GenericData()
+ * c.setData( [1,0,0] )
+ * c.setCostFunction( ({displ, strain, stress} => {
+ *      const d = stress.normalizeVector(displ)
+ *      return stress.scalarProduct( {U: d, V: this.data} )
+ * }) )
+ * ```
+ */
+export class GenericData extends Data {
+    private costFunction: CostFunction = undefined
+    private checkFunction: CheckFunction = undefined
+    private data: Vector3 = undefined
+
+    setData(v: Vector3) {
+        this.data = v
+    }
+
+    setCostFunction(f: CostFunction) {
+        this.costFunction = f
+    }
+
+    setCheckFunction(f: CheckFunction) {
+        this.checkFunction = f
+    }
+
+    initialize(params: DataParameters): boolean {
+        return true
+    }
+
+    check({ displ, strain, stress }: { displ?: Vector3, strain?: Matrix3x3, stress?: Matrix3x3 }): boolean {
+        return this.checkFunction({ displ, strain, stress })
+    }
+
+    cost({ displ, strain, stress }: { displ?: Vector3, strain?: Matrix3x3, stress?: Matrix3x3 }): number {
+        return this.costFunction({ displ, strain, stress })
+    }
+}

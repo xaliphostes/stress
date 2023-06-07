@@ -1,0 +1,471 @@
+import { SphericalCoords } from "./SphericalCoords"
+
+/**
+ * @category Math
+ */
+export type Point2D = [number, number]
+
+/**
+ * @category Math
+ */
+export type Point3D = [number, number, number]
+
+/**
+ * @category Math
+ */
+export type Vector3 = [number, number, number]
+
+/**
+ * @category Math
+ */
+export type Matrix3x3 = [[number, number, number], [number, number, number], [number, number, number]]
+
+/**
+ * @category Math
+ */
+export function newPoint3D() {
+    return [0, 0, 0] as Point3D
+}
+
+/**
+ * @category Math
+ */
+export function newVector3D() {
+    return [0, 0, 0] as Vector3
+}
+
+/**
+ * @category Math
+ */
+export function newMatrix3x3(): Matrix3x3 {
+    return [[0, 0, 0], [0, 0, 0], [0, 0, 0]] as Matrix3x3
+}
+
+/**
+ * @category Math
+ */
+export function cloneMatrix3x3(m: Matrix3x3): Matrix3x3 {
+    return [[...m[0]], [...m[1]], [...m[2]]]
+}
+
+/**
+ * @category Math
+ */
+export function newMatrix3x3Identity(): Matrix3x3 {
+    return [[1, 0, 0], [0, 1, 0], [0, 0, 1]] as Matrix3x3
+}
+
+/**
+ * @category Math
+ */
+export function deg2rad(a: number): number {
+    return a * Math.PI / 180
+}
+
+/**
+ * @category Math
+ */
+export const rad2deg = (a: number): number => a / Math.PI * 180
+
+/**
+ * @category Math
+ */
+export function vectorMagnitude(vector: Vector3): number {
+    // Calculate the magnitude of the vector
+    let magVector = Math.sqrt(vector[0] ** 2 + vector[1] ** 2 + vector[2] ** 2)
+    return magVector
+}
+
+/**
+ * @category Math
+ */
+export function normalizeVector(vector: Vector3, norm?: number): Vector3 {
+    if (norm !== undefined) {
+        if (norm === 0) {
+            throw new Error(`norm is zero`)
+        }
+        return [vector[0] / norm, vector[1] / norm, vector[2] / norm]
+    }
+
+    // Calculate the magnitude of the vector
+    let magVector = vectorMagnitude(vector)
+    if (magVector === 0) {
+        throw new Error(`vector is null and cannot be normalized`)
+    }
+    return [vector[0] / magVector, vector[1] / magVector, vector[2] / magVector]
+}
+
+/**
+ * @category Math
+ */
+export function stressTensorPrincipalAxes(sigma: [number, number, number]): Matrix3x3 {
+    // Calculate the stress tensor ST in the principal stress frame 
+    const STP: Matrix3x3 = newMatrix3x3()
+    // Stress tensor in the principal stress axis is diagonal
+    for (let i = 0; i < 3; i++) {
+        for (let j = 0; j < 3; j++) {
+            if (i === j) {
+                STP[i][j] = sigma[i]
+            } else {
+                STP[i][j] = 0
+            }
+        }
+    }
+    return STP
+}
+
+/**
+ * @category Math
+ */
+export function tensor_x_Vector(
+    { T, V }:
+        { T: Matrix3x3, V: Vector3 }): Vector3 {
+    // Pre-multply tensor T by vector V
+    const TV = newVector3D() as Vector3
+    TV[0] = T[0][0] * V[0] + T[0][1] * V[1] + T[0][2] * V[2]
+    TV[1] = T[1][0] * V[0] + T[1][1] * V[1] + T[1][2] * V[2]
+    TV[2] = T[2][0] * V[0] + T[2][1] * V[1] + T[2][2] * V[2]
+
+    return TV
+}
+
+/**
+ * @category Math
+ */
+export function constant_x_Vector(
+    { k, V }:
+        { k: number, V: Vector3 }): Vector3 {
+    // multiply vector V by constant k
+    const TV = newVector3D() as Vector3
+    TV[0] = k * V[0]
+    TV[1] = k * V[1]
+    TV[2] = k * V[2]
+
+    return TV
+}
+
+/**
+ * @category Math
+ */
+export function add_Vectors(
+    { U, V }:
+        { U: Vector3, V: Vector3 }): Vector3 {
+    // multiply vector V by constant k
+    const TV = newVector3D() as Vector3
+    TV[0] = U[0] + V[0]
+    TV[1] = U[1] + V[1]
+    TV[2] = U[2] + V[2]
+
+    return TV
+}
+
+/**
+ * @category Math
+ */
+export function scalarProduct(
+    { U, V }:
+        { U: Vector3, V: Vector3 }): number {
+    // Pre-multply tensor T by vector V
+    const UdotV = U[0] * V[0] + U[1] * V[1] + U[2] * V[2]
+
+    return UdotV
+}
+
+/**
+ * @category Math
+ */
+export function scalarProductUnitVectors(
+    { U, V }:
+        { U: Vector3, V: Vector3 }): number {
+    // Pre-multply tensor T by vector V
+    let UdotV = U[0] * V[0] + U[1] * V[1] + U[2] * V[2]
+
+    // The scalar product of unit vectors: -1 <= UdotV <= 1
+    UdotV = setValueInUnitInterval(UdotV)
+
+    return UdotV
+}
+
+/**
+ * @category Math
+ * Scalar value is constrained to interval [-1,1]
+ */
+export function setValueInUnitInterval(U: number): number {
+    let V = U
+    if (U > 1) {
+        V = 1
+    }
+    if (U < -1) {
+        V = -1
+    }
+    return V
+}
+
+/**
+ * @brief Calculate the cross product of 2 vectors U and V: U x V
+ * @param {U: Vector3, V: Vector3}
+ * @example
+ * ```ts
+ * const Ua: Vector3 = ...
+ * const Va: Vector3 = ...
+ * const return = crossProduct({U: Ua, V: Va})
+ * ```
+ * @category Math
+ */
+export function crossProduct(
+    { U, V }:
+        { U: Vector3, V: Vector3 }): Vector3 {
+    return [U[1] * V[2] - U[2] * V[1],
+    U[2] * V[0] - U[0] * V[2],
+    U[0] * V[1] - U[1] * V[0]]
+}
+
+/**
+ * @brief Calculate the cross product of 2 vectors U and V: U x V
+ * @param {U: Vector3, V: Vector3}
+ * @example
+ * ```ts
+ * const Ua: Vector3 = ...
+ * const Va: Vector3 = ...
+ * const return = crossProduct({U: Ua, V: Va})
+ * ```
+ * @category Math
+ */
+export function normalizedCrossProduct({ U, V }:{ U: Vector3, V: Vector3 }): Vector3 {
+    let W: Vector3
+    W = crossProduct({U,V})
+    return normalizeVector(W)
+}
+
+/**
+ * @brief Calculate the multiplication of 2 tensors A and B: Cik = Aij Bjk
+ * @param {A: Matrix3x3, B: Matrix3x3}
+ * @example
+ * ```ts
+ * const Ma: Matrix3x3 = ...
+ * const Mb: Matrix3x3 = ...
+ * const C = multiplyTensors({A: Ma, B: Mb})
+ * ```
+ * @category Math
+ */
+export function multiplyTensors({ A, B }: { A: Matrix3x3, B: Matrix3x3 }): Matrix3x3 {
+    const C: Matrix3x3 = newMatrix3x3()
+
+    for (let i = 0; i < 3; i++) {
+        for (let j = 0; j < 3; j++) {
+            C[i][j] = 0
+            for (let k = 0; k < 3; k++) {
+                C[i][j] += A[i][k] * B[k][j]
+            }
+        }
+    }
+    return C
+}
+
+/**
+ * @category Math
+ */
+export function transposeTensor(A: Matrix3x3): Matrix3x3 {
+    // Calculate the multiplication of 2 tensors: Cik = Aij Bjk
+    const B: Matrix3x3 = newMatrix3x3()
+
+    for (let i = 0; i < 3; i++) {
+        for (let j = 0; j < 3; j++) {
+            B[j][i] = A[i][j]
+        }
+    }
+    return B
+}
+
+/**
+ * @category Math
+ */
+export function rotationParamsFromRotTensor(rotTensor: Matrix3x3): { rotAxis: Vector3, rotMag: number } {
+    // The cartesian and spherical coords of a unit vector corresponding to the rotation axis are determined 
+    // from the components of the tensor definning a proper rotation
+
+    let rotVector: Vector3
+
+    // The axis of rotation is determined form the compoientns of the matrix of a proper rotation
+    rotVector[0] = rotTensor[2][1] - rotTensor[1][2]
+    rotVector[1] = rotTensor[0][2] - rotTensor[2][0]
+    rotVector[2] = rotTensor[1][0] - rotTensor[0][1]
+    let rotVectorMag = vectorMagnitude(rotVector)
+
+    // The magnitude of rotVector computed this way is ||rotVector|| = 2 sin θ, where θ is the angle of rotation.
+    let rotMag = Math.asin(rotVectorMag / 2)
+    let rotAxis: Vector3 = undefined
+
+    if (rotMag > 0) {
+        rotAxis = normalizeVector(rotVector, rotMag)
+    } else {
+        rotAxis = [1, 0, 0]
+    }
+
+    return {
+        rotAxis,
+        rotMag
+    }
+}
+
+/**
+ * @category Math
+ */
+export function normalVector(
+    { phi, theta }:
+        { phi: number, theta: number }): Vector3 {
+    /** 
+     * Define unit vector normal to the fault plane in the upper hemisphere (pointing upward) from angles in spherical coordinates.
+     * The normal vector is constnat for each fault plane and is defined in the geographic reference system: S = (X,Y,Z)
+    */
+    let normal = newVector3D() // ***
+
+    normal[0] = Math.sin(phi) * Math.cos(theta)
+    normal[1] = Math.sin(phi) * Math.sin(theta)
+    normal[2] = Math.cos(phi)
+
+    return normal
+}
+
+/**
+ * @category Math
+ */
+export function spherical2unitVectorCartesian(spheriCoords: SphericalCoords): Vector3 {
+    // The principal stress axes and microfault data such as stylolites can be represented by lines.
+    // A line is defined by its trend and plunge angles in the geographic reference system:
+    // trend = azimuth of the line in interval [0, 360), measured clockwise from the North direction
+    // plunge =  vertical angle between the horizontal plane and the sigma 1 axis (positive downward), in interval [0,90]
+
+    // (phi,theta) : spherical coordinate angles defining the unit vector in the geographic reference system: S = (X,Y,Z) = (E,N,Up)
+
+    // phi : azimuthal angle in interval [0, 2 PI), measured anticlockwise from the X axis (East direction) in reference system S
+    // theta: colatitude or polar angle in interval [0, PI/2], measured downward from the zenith (upward direction)
+
+    const V = newVector3D() as Vector3
+
+    V[0] = Math.sin(spheriCoords.theta) * Math.cos(spheriCoords.phi)
+    V[1] = Math.sin(spheriCoords.theta) * Math.sin(spheriCoords.phi)
+    V[2] = Math.cos(spheriCoords.theta)
+
+    return V
+}
+
+/**
+ * @category Math
+ */
+export function unitVectorCartesian2Spherical(V: Vector3, EPS = 1e-7): SphericalCoords {
+    // This routine inverts the following equations in spherical coordinates:
+    // V[0] = Math.sin(spheriCoords.theta) * Math.cos(spheriCoords.phi)
+    // V[1] = Math.sin(spheriCoords.theta) * Math.sin(spheriCoords.phi)
+    // V[2] = Math.cos(spheriCoords.theta)
+
+    // (phi,theta) : spherical coordinate angles defining the unit vector in the geographic reference system: S = (X,Y,Z) = (E,N,Up)
+
+    // phi : azimuthal angle in interval [0, 2 PI), measured anticlockwise from the X axis (East direction) in reference system S
+    // theta: colatitude or polar angle in interval [0, PI/2], measured downward from the zenith (upward direction)
+
+    let spheriCoords: SphericalCoords = new SphericalCoords()
+
+    // Unit vector component V[0] is constrained to interval [-1,1]
+    V[2] = setValueInUnitInterval(V[2])
+
+    // theta = polar angle in interval [0,PI]
+    spheriCoords.theta = Math.acos(V[2])
+    let stheta = Math.sin(spheriCoords.theta)
+
+    if (Math.abs(stheta) > EPS) {       // In principle, stheta >=0
+        // cphi = cos(phi)
+        let cphi = V[0] / stheta
+        // cphi is constrained to interval [-1,1]
+        cphi = setValueInUnitInterval(cphi)
+        // phi is in interval [0,PI]
+        spheriCoords.phi = Math.acos(cphi)
+        if (V[1] < 0) {
+            // phi is in interval (PI,2PI). The angle is obtained by reflexion on the x axis:
+            spheriCoords.phi = 2 * Math.PI - spheriCoords.phi
+        }
+    } else {
+        // theta is close to 0 or PI, thus the unit vector is close to the vertical axis
+        // phi can take any value
+        spheriCoords.phi = 0
+    }
+    return spheriCoords
+}
+
+/**
+ * @category Math
+ */
+export function properRotationTensor({ nRot, angle }:
+    { nRot: Vector3, angle: number }): Matrix3x3 {
+    // Calculate the proper rotation tensor psi corresponding to a rotation angle around a unit axis nRot
+    // Psi allows to calculate the new coords of a vector undergoing a given rotation
+
+    const PsiRot: Matrix3x3 = newMatrix3x3()
+
+    let cosa = Math.cos(angle)
+    let sina = Math.sin(angle)
+
+    PsiRot[0][0] = cosa + nRot[0] ** 2 * (1 - cosa)
+    PsiRot[0][1] = nRot[0] * nRot[1] * (1 - cosa) - nRot[2] * sina
+    PsiRot[0][2] = nRot[0] * nRot[2] * (1 - cosa) + nRot[1] * sina
+    PsiRot[1][0] = nRot[1] * nRot[0] * (1 - cosa) + nRot[2] * sina
+    PsiRot[1][1] = cosa + nRot[1] ** 2 * (1 - cosa)
+    PsiRot[1][2] = nRot[1] * nRot[2] * (1 - cosa) - nRot[0] * sina
+    PsiRot[2][0] = nRot[2] * nRot[0] * (1 - cosa) - nRot[1] * sina
+    PsiRot[2][1] = nRot[2] * nRot[1] * (1 - cosa) + nRot[0] * sina
+    PsiRot[2][2] = cosa + nRot[2] ** 2 * (1 - cosa)
+
+    return PsiRot
+}
+
+/**
+ * @category Math
+ */
+export function minRotAngleRotationTensor(rotTensor: Matrix3x3, EPS = 1e-7): number {
+    // let rotTensor be the rotation tensor between two right-handed references systems Sa = (Xa, Ya, Za) and Sb = (Xb, Yb, Zb) such that:
+    //      Vb = rotTensor Va
+    // where Va and Vb are corresponding vectors defined in reference systems Sa and Sb, respectively
+    // Sa may correspond to the reference system of the principal directions of a stress tensor defined by a pair of conjugate faults
+    // or neoformed striated plane.
+    // Sb is the reference system of the principal directions of a stress tensor defined by the interactive search
+    // or an inverse method. 
+    // Recall that the pricipal stress direction (Sigma 1, Sigma 3, Sigma 2) are parallel to (X, Y, Z), respectively
+
+    // This function calculates the minimum rotation angle between Sa and Sb, by considering the four possible right-handed reference systems
+    // that are consistent with pricipal stress directions en system Sb. 
+
+    // The angle of rotation associated to rotTensor is defined by the trace tr(rotTensor), according to the relation:
+    //      tr(rotTensor) = 1 + 2 cos(rotAngle)
+    // where rotAngle is in interval [0,PI]
+
+    // Note that the inverse rotation tensor defined by the transpoded matrix has the same trace. 
+    // Thus the rotation angle is the same for tensors rotTensor and rotTensorT (i.e., transposed)
+
+    let traceRotTensor: number[] = new Array(4)
+    // The trace of the first rotation tensor such that reference system Sb0 = (Xb, Yb, Zb)
+    traceRotTensor[0] =   rotTensor[0][0] + rotTensor[1][1] + rotTensor[2][2]
+    // The trace of the second rotation tensor such that reference system Sb1 = (Xb, -Yb, -Zb)
+    // System Sb1 is obtained by rotating Sb0 at an angle of PI around Xb
+    // Note that Sb1 is right-handed and its principal axes are parallel to (Sigma 1, Sigma 3, Sigma 2)
+    traceRotTensor[1] =   rotTensor[0][0] - rotTensor[1][1] - rotTensor[2][2]
+    // The trace of the second rotation tensor such that reference system Sb2 = (-Xb, Yb, -Zb)
+    // System Sb2 is obtained by rotating Sb0 at an angle of PI around Yb
+    // Note that Sb2 is right-handed and its principal axes are parallel to (Sigma 1, Sigma 3, Sigma 2)
+    traceRotTensor[2] = - rotTensor[0][0] + rotTensor[1][1] - rotTensor[2][2]
+    // The trace of the second rotation tensor such that reference system Sb3 = (Xb, -Yb, -Zb)
+    // System Sb3 is obtained by rotating Sb0 at an angle of PI around Zb
+    // Note that Sb3 is right-handed and its principal axes are parallel to (Sigma 1, Sigma 3, Sigma 2)
+    traceRotTensor[3] = - rotTensor[0][0] - rotTensor[1][1] + rotTensor[2][2]
+
+    const max = traceRotTensor.reduce( (cur, v) => Math.max(cur, v) , Number.NEGATIVE_INFINITY)
+    let cosMinRotAngle = ( max - 1 ) / 2
+
+    if ( Math.abs( cosMinRotAngle ) > 1 ) {
+        if (Math.abs( cosMinRotAngle ) > 1 + EPS ) {
+            throw new Error(`The cosine of the minimum rotation angle of the rotation tensor is not in the unit interval`)
+        }
+        cosMinRotAngle = setValueInUnitInterval( cosMinRotAngle )
+    }
+
+    return Math.acos( cosMinRotAngle )
+}

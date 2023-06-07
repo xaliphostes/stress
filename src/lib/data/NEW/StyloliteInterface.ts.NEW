@@ -1,0 +1,59 @@
+import { eigen } from "@youwol/math"
+import { Matrix3x3, Point3D, scalarProductUnitVectors, Vector3 } from "../types"
+import { fromAnglesToNormal } from "../utils/fromAnglesToNormal"
+import { Data, DataParameters } from "./Data"
+import { FractureStrategy } from "./types"
+// import { Fracture, FractureParams, FractureStrategy } from "./Fracture"
+
+/**
+ * @category Data
+ */
+  
+ export class StyloliteInterface extends Data {
+    protected normal: Vector3 = [0,0,0]
+    protected strategy: FractureStrategy = FractureStrategy.ANGLE
+    protected position: Point3D = undefined
+
+    initialize(params: DataParameters): boolean {
+        if (Number.isNaN(params.dip)) {
+            throw new Error('Missing dip angle for Stylolite Interface')
+        }
+        
+        if (Number.isNaN(params.azimuth)) {
+            throw new Error('Missing azimuth angle for Stylolite Interface')
+        }
+       
+        if (params.dip < 90 && Number.isNaN(params.dipDirection)) {
+            throw new Error('Missing dip direction for StriatedPlaneKin')
+        }
+
+        // Convert into normal
+        this.normal = fromAnglesToNormal({strike: params.azimuth, dip: params.dip, dipDirection: params.dipDirection})
+        //console.log(this.normal)
+        return true
+    }
+
+    check({displ, strain, stress}:{displ: Vector3, strain: Matrix3x3, stress: Matrix3x3}): boolean {
+        return stress !== undefined
+    }
+
+    cost({displ, strain, stress}:{displ: Vector3, strain: Matrix3x3, stress: Matrix3x3}): number {
+        // This version does not consider the case in which the stress shape ratio R is close to 1 (i.e., Sigma 2 = Sigma 1) 
+        //      and any plane containing Sigma 3 is consistent with the stress tensor solution
+
+        // [xx, xy, xz, yy, yz, zz]
+        const sigma = [stress[0][0], stress[0][1], stress[0][2], stress[1][1], stress[1][2], stress[2][2]]
+        // eigen = function calculating the 3 normalized eigenvectors (Sigma_1, Sigma_2, Sigma_3) of the stress tensor ??
+        // vectors is formated like: [S1x, S1y, S1z, S2x..., S3z]
+        const {values, vectors} = eigen(sigma)
+        const s = [vectors[0], vectors[1], vectors[2]] as Vector3
+        
+        const dot = scalarProductUnitVectors({U: s, V: this.normal})
+
+        switch(this.strategy) {
+            case FractureStrategy.DOT: return 1 - Math.abs(dot)
+            // Sigma 3 can be oriented in two opposite directions, thus to calculate the minimum angle we take the dot product as positive.
+            default: return Math.acos(Math.abs(dot))/Math.PI
+        }
+    }
+}

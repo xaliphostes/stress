@@ -1,0 +1,3 @@
+import { ConjugateFaults } from "../../utils/ConjugateFaults"
+
+export type DilationShearBands = ConjugateFaults

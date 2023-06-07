@@ -1,0 +1,61 @@
+import { deg2rad, spherical2unitVectorCartesian } from "../types/math"
+import { DataParameters } from "./DataParameters"
+import { ExtensionFracture } from "./ExtensionFracture"
+import { SphericalCoords } from "../types/SphericalCoords"
+
+/**
+ * This class inherits not from Data but rather from ExtensionFracture.
+ * This means that the check() and cost() methods are already implemented (in
+ * the right way). Only this.normal is important here, which is computed through
+ * the private method CrystalFibersInVeinSphericalCoords.
+ * @category Data
+ */
+export class CrystalFibersInVein extends ExtensionFracture {
+    private coordinates: SphericalCoords = new SphericalCoords()
+    private crystal_fibers_plunge = 0
+    private crystal_fibers_trend = 0
+
+    initialize(params: DataParameters[]): boolean {
+        if (Number.isNaN(params[0].lineTrend)) {
+            throw new Error('Missing trend angle for Crystal Fibers in Vein')
+        }
+
+        if (Number.isNaN(params[0].linePlunge)) {
+            throw new Error('Missing plunge angle for Crystal Fibers in Vein')
+        }
+
+        this.crystal_fibers_plunge = params[0].linePlunge
+        this.crystal_fibers_trend = params[0].lineTrend
+        this.CrystalFibersInVeinSphericalCoords()
+        return true
+    }
+
+    // Crystal Fibers in a vein are defined by a set of two parameters as follows:
+    //      Crystal Fibers' trend: clockwise angle measured from the North direction [0, 360)
+    //      Crystal Fibers' plunge: inclination angle relative to the horizontal in interval [0, 90] (positive downward)
+
+    // (phi,theta) : spherical coordinate angles defining the unit vector parallel to the Crystal Fibers in Vein (pointing downward)
+    //                 in the geographic reference system: S = (X,Y,Z) = (E,N,Up)
+
+    // phi : azimuthal angle in interval [0, 2 PI), measured anticlockwise from the X axis (East direction) in reference system S
+    // theta: colatitude or polar angle in interval [0, PI], measured downward from the zenith (upward direction)
+
+    private CrystalFibersInVeinSphericalCoords(): void {
+
+        // The polar angle (or colatitude) theta is calculated in radians from the plunge of the Crystal Fibers :
+        this.coordinates.theta = deg2rad( this.crystal_fibers_plunge ) + Math.PI / 2
+
+        // The azimuthal angle is calculated in radians from the trend of the Crystal Fibers :
+        //      trend + phi = PI / 2 
+        this.coordinates.phi = deg2rad( 90 - this.crystal_fibers_trend )
+
+        if  ( this.crystal_fibers_trend > 90 ) {
+            // phi < 0
+            this.coordinates.phi = this.coordinates.phi + 2 * Math.PI
+        }
+        // The unit vector parallel to the Crystal Fibers is defined by angles (phi, theta) in spherical coordinates.
+        // normal: unit vector parallel to the Crystal Fibers in Vein (pointing downward) defined in the geographic reference system: S = (X,Y,Z)
+        this.normal = spherical2unitVectorCartesian(this.coordinates)       
+    }
+}
+

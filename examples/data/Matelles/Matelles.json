@@ -1,0 +1,35 @@
+{
+    "csv": [
+        {
+            "file": "../data/Matelles/joints.csv"
+        },
+        {
+            "file": "../data/Matelles/stylos.csv"
+        }
+    ],
+    "_search": {
+        "name": "Debug Search",
+        "params": {
+        }
+    },
+    "__search": {
+        "name": "Grid Search",
+        "params": {
+            "deltaGridAngle": 2,
+            "GridAngleHalfIntervalS": 45,
+            "stressRatioHalfInterval": 0.1,
+            "deltaStressRatio": 0.2,
+            "Rrot": [[0,1,0], [1,0,0], [0,0,1]],
+            "stressRatio": 0.5
+        }
+    },
+    "search": {
+        "name": "Monte Carlo",
+        "params": {
+                "rotAngleHalfInterval": 60,
+                "nbRandomTrials": 15000,
+                "stressRatio": 0.5,
+                "stressRatioHalfInterval": 0.25
+        }
+    }
+}

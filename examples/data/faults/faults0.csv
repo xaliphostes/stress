@@ -1,0 +1,8 @@
+Data type;Azimuth [0,360);Dip [0,90];Dip direction;Rake [0,90];Strike direction;Striation trend [0,360);Sense of mouvement;Stylolite Teeth trend [0,360);Stylolite Teeth plunge [0,90]
+Striated Plane;45;60;SE;0;NE;;Right Lateral;;
+Striated Plane;45;60;SE;5;NE;;Right Lateral;;
+Striated Plane;45;30;SE;4;SW;;Right Lateral;;
+Striated Plane;45;45;NW;3;SW;;Right Lateral;;
+Striated Plane;135;60;NE;6;SE;;Left Lateral;;
+Striated Plane;135;30;NE;2;NW;;Left Lateral;;
+Striated Plane;135;40;SW;1;SE;;Left Lateral;;

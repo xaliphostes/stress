@@ -1,0 +1,67 @@
+import { Data, DataFactory } from "../data"
+import { trimAll } from "../utils"
+
+/* Columns format
+    Data type;
+    Azimuth [0,360);
+    Dip [0,90];
+    Dip direction;
+    Rake [0,90];
+    Strike direction;
+    Striation trend [0,360);
+    Sense of mouvement;
+    Stylolite Teeth trend [0,360);
+    Stylolite Teeth plunge [0,90]
+*/
+export function decodeCSV_Angles(lines: string, otherParams: {[key: string]: any}): Data[] {
+    const datas = []
+
+    for (let i = 0; i < lines.length; ++i) {
+        if (i===0) {
+            continue // line header
+        }
+
+        const line = trimAll(lines[i].trim())
+        if (line.length === 0) {
+            continue
+        }
+
+        const r = line.split(';').map( s => s.replace(',', '.'))
+
+        if (r.length === 0) {
+            continue
+        }
+        
+        if (r.length===16) {
+            const dataType = r[0]
+            const data = DataFactory.create(dataType)
+
+            if (data === undefined) {
+                throw new Error(`data type "${dataType}" is not defined`)
+            }
+
+            // The 9 (optional) parameters defined in Excel
+            let i = 1
+            const params = {
+                azimuth: parseFloat(r[i++]),
+                dip: parseFloat(r[i++]),
+                dip_direction: r[i++],
+                rake: parseFloat(r[i++]),
+                strike_direction: r[i++],
+                striation_trend: parseFloat(r[i++]),
+                sens_of_movement: r[i++],
+                stylolite_teeth_trend: parseFloat(r[i++]),
+                stylolite_teeth_plunge: parseFloat(r[i++])
+            }
+
+            for (let key in otherParams) {
+                params[key] = otherParams[key]
+            }
+
+            data.initialize(params)
+            datas.push(data)
+        }
+    }
+
+    return datas
+}

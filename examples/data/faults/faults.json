@@ -1,0 +1,34 @@
+{
+   "csv": [
+        {
+            "file": "../data/faults/faults.csv"
+        }
+    ],
+
+    "_search": {
+        "name": "Grid Search",
+        "params": {
+            "deltaGridAngle": 2,
+            "GridAngleHalfIntervalS": 45,
+            "stressRatioHalfInterval": 0.1,
+            "deltaStressRatio": 0.2
+        }
+    },
+    "search": {
+        "name": "Monte Carlo",
+        "params": {
+                "rotAngleHalfInterval": 45,
+                "nbRandomTrials": 50000,
+                "stressRatioHalfInterval": 0.25
+        }
+    },
+
+    "interactiveStressTensor": {
+        "trendS1": 90,
+        "plungeS1": 10,
+        "trendS3": 0,
+        "plungeS3": 0,
+        "masterStress": "Sigma1",
+        "stressRatio": 0.5
+    }
+}

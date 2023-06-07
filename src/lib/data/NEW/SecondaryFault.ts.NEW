@@ -1,0 +1,95 @@
+import { eigen, rotateAxis, vec } from "@youwol/math"
+import { deg2rad, Matrix3x3, Point3D, Vector3 } from "../types/math"
+import { Data, DataParameters } from "./Data"
+import { FractureStrategy } from "./types"
+
+//
+// Nom "SecondaryFault" à préciser !
+//
+
+/**
+ * @category Data
+ */
+export enum SecondaryFaultCostType {
+    MIN,
+    RAND,
+    FIRST,
+    SECOND
+}
+
+/**
+ * @category Data
+ */
+export type SecondaryFaultParams = {
+    n: Vector3, 
+    pos?: Point3D,  
+    weight?: number,
+    frictionAngle?: number
+    costType?: SecondaryFaultCostType,
+    strategy?: FractureStrategy,
+    projected?: boolean
+}
+
+/**
+ * @category Data
+ */
+export class SecondaryFault extends Data {
+    protected normal: Vector3
+    protected position: Vector3
+    protected frictionAngle: number
+    protected costType: SecondaryFaultCostType
+    protected strategy: FractureStrategy
+    protected projected: boolean
+    
+    // constructor({
+    //     n, 
+    //     costType=SecondaryFaultCostType.MIN, 
+    //     projected=true, 
+    //     strategy= FractureStrategy.ANGLE, 
+    //     frictionAngle=30, 
+    //     pos, 
+    //     weight=1
+    // }: SecondaryFaultParams)
+    // {
+    //     super()
+    //     this.normal = n
+    //     this.position = pos
+    //     this.weight_ = weight
+    //     this.frictionAngle = frictionAngle
+    //     this.costType = costType
+    //     this.strategy = strategy
+    //     this.projected = projected
+    // }
+    initialize(params: DataParameters): boolean {return false}
+
+    check({displ, strain, stress}:{displ: Vector3, strain: Matrix3x3, stress: Matrix3x3}): boolean {
+        return stress !== undefined
+    }
+
+    cost({displ, strain, stress}:{displ: Vector3, strain: Matrix3x3, stress: Matrix3x3}): number {
+        return 1
+    }
+
+    private generateNormals(stress: Matrix3x3) {
+        /*
+        const getPhi = (friction: number): number => (Math.PI * (45 - friction / 2)) / 180
+    
+        const internalFriction = getPhi(deg2rad(this.frictionAngle))
+        const s = [stress[]]
+        const eigV = eigen(stress).vectors
+    
+        return {
+            n1: eigV.map((e) => {
+                const v2 = [-e[3], -e[4], -e[5]]
+                const v3 = [-e[6], -e[7], -e[8]]
+                return rotateAxis(v2 as vec.Vector3, internalFriction, v3 as vec.Vector3)
+            }),
+            n2: eigV.map((e) => {
+                const nS3 = [-e[0], -e[1], -e[2]] as vec.Vector3
+                const v2 = [-e[3], -e[4], -e[5]] as vec.Vector3
+                return rotateAxis(v2, -internalFriction, nS3)
+            }),
+        }
+        */
+    }
+}

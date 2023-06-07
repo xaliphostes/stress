@@ -1,0 +1,162 @@
+import { add_Vectors, constant_x_Vector, Matrix3x3, newVector3D, normalizeVector, scalarProductUnitVectors, tensor_x_Vector, Vector3, vectorMagnitude } from "../types"
+import { DataParameters } from "./DataParameters"
+import { StriatedPlaneKin } from "./StriatedPlane_Kin"
+
+/**
+ * @category Data
+ */
+export class StriatedPlaneFriction1 extends StriatedPlaneKin {
+    protected cohesionRock_ = 0
+    protected frictionAngleRock_ = 0
+    protected weightFriction_ = 1
+
+    set cohesionRock(c: number) {
+        this.cohesionRock_ = c
+    }
+
+    set frictionAngleRock(f: number) {
+        this.frictionAngleRock_ = f
+        if (this.frictionAngleRock_ <= this.EPS) {
+            // A positive friction angle has to be defined prior to stress tensor inversion
+            throw ('For friction analysis choose frictionAngleRock > 0 ')
+        }
+    }
+
+    // Not used yet!!!
+    set weightFriction(w: number) {
+        this.weightFriction_ = w
+    }
+
+    initialize(params: DataParameters[]): boolean {
+        if (super.initialize(params) === false) {
+            return false
+        }
+
+        if (params[0].cohesion) {
+            this.cohesionRock = params[0].cohesion
+        }
+
+        if (params[0].friction) {
+            this.frictionAngleRock = params[0].friction
+        }
+
+        if (params[0].weightFriction) {
+            this.weightFriction = params[0].weightFriction
+        }
+
+        return true
+    }
+
+    cost({ displ, strain, stress }: { displ: Vector3, strain: Matrix3x3, stress: Matrix3x3 }): number {
+        // For each striated fault the misfit distance is defined in terms of an angular distance between the stress vector F
+        // and the closest axis Fkf that satisfies both the kinematical and frictional costraints.
+        // In other words, Fkf is such that its projection on the fault plane is parallel to the measured striation 
+        // and it is located along or above the friction line in the Mohr Circle diagram.
+
+        // The normal stress is calculated by shifting the origin of the normalized Mohr circle toward the left, such that the friction law passes by the new origin
+        // This condition allows to calculate friction angles for the total stress vectors that can be directly compared with the rock friction angle
+        // Moreover, this condition is consistent with a residual friction law for shear faulting
+
+        // The misfit distance corresponds to an angular distance between the stress vector F and Fkf
+        let misfitDistance = Number.MAX_VALUE
+        let stress2: Vector3
+        let stress_Shifted_Sigma_n: Vector3
+        let F: Vector3
+        let Flocal: Vector3
+        const frictionStriaUnitVecLocal: Vector3 = newVector3D()
+        let magStressShiftSigma_n: number
+        let deltaNormalStress: number
+
+        // deltaNormalStress = Shift of the normalized Mohr circle along the normal stress axis
+        //      such that the friction line intersects the origin of the plane (normal stress, shear stress)
+        //      deltaNormalStress > 0, according to rock mechanics sign convention : Compressional stresses > 0
+        deltaNormalStress = this.cohesionRock_ / Math.tan(this.frictionAngleRock_)
+
+        // Let (xl,yl,zl) be a local right-handed reference frame fixed to the fault plane, where:
+        //      xl = unit vector pointing toward the striation
+        //      yl = unit vector perpendicular to the striation and located in the fault plane
+        //      zl = fault normal (i.e., pointing upward)
+        // Note that (xl,yl,zl) is defined by 3 orthonormal vectors: (fault.striation, fault.e_perp_striation, fault.normal)
+
+        // frictionStriaUnitVecLocal = constant unit vector (Fkfo) in local reference frame (xl,yl,zl) such that:
+        //      1) Its projection on the fault plane is parallel to the measured striation
+        //      2) It is located along the friction line
+        frictionStriaUnitVecLocal[0] = Math.sin(this.frictionAngleRock_)
+        frictionStriaUnitVecLocal[1] = 0
+        // The normal stress is defined according to the rock mechanics sign convention : Compressional stresses > 0
+        frictionStriaUnitVecLocal[2] = Math.cos(this.frictionAngleRock_)
+
+        // ------------- FOR (before)
+
+        //==============  Stress analysis using continuum mechanics sign convention : Compressional stresses < 0
+
+        // In principle, principal stresses are negative: (sigma 1, sigma 2, sigma 3) = (-1, -R, 0) 
+        // Calculate total stress vector F:  
+        stress2 = tensor_x_Vector({ T: stress, V: this.nPlane })
+
+        // stress_Shifted_Sigma_n = Stress vector obtained by adding the shift of the normal stress component deltaNormalStress
+        //      i.e., in a 'frictional' reference frame such that the Mohr Coulomb line intersects the origin
+        stress_Shifted_Sigma_n = add_Vectors({ U: stress2, V: constant_x_Vector({ k: - deltaNormalStress, V: this.nPlane }) })
+
+        magStressShiftSigma_n = vectorMagnitude(stress_Shifted_Sigma_n)
+
+        if (magStressShiftSigma_n > this.EPS) {    // stressMag > Epsilon ***
+            // In principle the stress magnitude > 0 ***
+
+            // F = shifted stress vector (compression < 0), normalized for angular calculations
+            F = normalizeVector(stress_Shifted_Sigma_n, magStressShiftSigma_n)
+
+            //==============  Friction analysis using rock mechanics sign convention : Compressional stresses > 0
+
+            // Calculate the normalized stress vector F in local reference frame (xl,yl,zl)
+            Flocal[0] = scalarProductUnitVectors({ U: F, V: this.nStriation })
+            // For angular calculations the stress componenet parallel to yl is taken as positive:
+            //  the sign of yl has no influence on the misfit distance
+            Flocal[1] = Math.abs(scalarProductUnitVectors({ U: F, V: this.nPerpStriation }))
+            // For angular calculations the normal stress is taken as positive consistently with frictionStriaUnitVecLocal[2] > 0
+            // This tranformation is equivalent to a reflexion of the stress vector relative to the plane (xl,yl)
+            // In other words, the sign of the normal stress is inverted from negative to positive
+            Flocal[2] = Math.abs(scalarProductUnitVectors({ U: F, V: this.nPlane }))
+
+            // Calculate the colatitude angle theta_z, in interval [0, PI/2] since yl>= 0 
+            //      yl = cos(theta_z)
+            let theta_z = Math.acos(Flocal[1])
+
+            if (Math.abs(theta_z) > this.EPS) {
+                // Calculate the azimuthal angle phi_z necessary for determining the misfit distance in terms of the orientation of the stress vector
+                // phi_z is in interval [-PI/2, PI/2] depending on the sign of xl
+                //      xl = sin(theta_z) * sin(phi_z)
+                let phi_z = Math.asin(Flocal[0] / Math.sin(theta_z))
+
+                if (phi_z >= this.frictionAngleRock_) {
+                    // Case 1: The stress vector satisfies the frictional criteriun
+                    // The angular distance to the closest axis Fkf is located along a great circle passing by yl.
+                    // Note that the misfit angular difference is lower than the angular difference between measured and calculated striae
+                    misfitDistance = (Math.PI / 2) - theta_z
+                } else if (phi_z > 0) {
+                    // Case 2: 
+                    // xl > 0, thus the angular difference between measured and calculated striation < PI/2
+                    // Note that the stress vector may satisfy (or not) the frictional criteriun;
+
+                    // The misfit is defined by the angular deviation of the stress relative to frictionStriaUnitVecLocal.
+                    // More precisely, frictionStriaUnitVecLocal is the closest axis satisfying the kinematic and frictional criteria
+                    misfitDistance = Math.acos(scalarProductUnitVectors({ U: Flocal, V: frictionStriaUnitVecLocal }))
+                } else {
+                    // Case 3: xl <= 0, thus the angular difference between measured and calculated striation >= PI/2
+                    // In principle, these faults should be eliminated from the solution set by assigning a misfit greater than PI/2
+                    misfitDistance = Math.max(Math.acos(scalarProductUnitVectors({ U: Flocal, V: frictionStriaUnitVecLocal })), Math.PI / 2)
+                }
+            } else {
+                // stressUnitVecLocal is parallel to yl: stressUnitVecLocal[1] = 1
+                misfitDistance = Math.PI / 2
+            }
+        }
+        else {
+            // The friction angle is zero and the plane is perpendicular to Sigma_3
+            // In such situation, the fault should be eliminated from the solution set by assigning a misfit of PI/2
+            misfitDistance = Math.PI / 2
+        }
+        
+        return misfitDistance
+    }
+}

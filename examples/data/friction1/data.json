@@ -1,0 +1,39 @@
+{
+    "_csv": [
+        "../data/friction1/faults.csv",
+        "../data/friction1/fractures.csv"
+    ],
+
+    "csv": [
+        {
+            "file": "../data/friction1/faults.csv",
+            "params": {
+                "type": "Striated Plane Friction1",
+                "friction": 0.5,
+                "cohesion": 0.1,
+                "weightFriction": 1
+            }
+        },
+        {
+            "file": "../data/friction1/fractures.csv"
+        }
+    ],
+
+    "search": {
+        "name": "Monte Carlo",
+        "params": {
+            "rotAngleHalfInterval": 45,
+            "nbRandomTrials": 50000,
+            "stressRatioHalfInterval": 0.25
+        }
+    },
+
+    "interactiveStressTensor": {
+        "trendS1": 90,
+        "plungeS1": 10,
+        "trendS3": 0,
+        "plungeS3": 0,
+        "masterStress": "Sigma1",
+        "stressRatio": 0.5
+    }
+}

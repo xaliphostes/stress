@@ -1,0 +1,50 @@
+{
+    "name": "@alfredo-taboada/stress",
+    "version": "0.0.4",
+    "description": "First course on TypeScript",
+    "author": "",
+    "keywords": [],
+    "main": "dist/@alfredo-taboada/stress.js",
+    "types": "src/index.ts",
+    "scripts": {
+        "build": "yarn build:dev && cp ./dist/@alfredo-taboada/stress.js ../app-stress-0/libs",
+        "build:dev": "webpack --mode development",
+        "build:prod": "webpack --mode production",
+        "test": "jest -c ./jest.config.js --rootDir .",
+        "test-coverage": "jest -c ./jest.config.js --rootDir . --collect-coverage --collectCoverageFrom=./src/lib/**/*.ts ",
+        "doc": "typedoc src/ src/examples --exclude src/tests --media ./media --excludePrivate --disableSources --out dist/docs --includeVersion --hideGenerator",
+        "publish-npm-public": "yarn build:prod && yarn test-coverage && yarn publish --access public",
+        "test-debug": "node --inspect-brk node_modules/.bin/jest --runInBand --detectOpenHandles src/tests/inversion.test.ts"
+    },
+    "dependencies": {
+        "@youwol/dataframe": "^0.0.38",
+        "@youwol/geometry": "^0.0.22",
+        "@youwol/io": "^0.0.25-wip",
+        "@youwol/math": "^0.0.27"
+    },
+    "peerDependencies": {},
+    "devDependencies": {
+        "@types/filesystem": "0.0.32",
+        "@types/jest": "29.4.0",
+        "@types/node": "18.11.18",
+        "eslint": "8.33.0",
+        "file-system": "2.2.2",
+        "jest": "29.4.1",
+        "jest-environment-jsdom": "^29.4.1",
+        "jest-junit": "15.0.0",
+        "ts-jest": "29.0.5",
+        "ts-loader": "9.4.2",
+        "tslib": "^2.5.0",
+        "typedoc": "^0.23.24",
+        "typescript": "4.9.5",
+        "webpack": "5.75.0",
+        "webpack-cli": "5.0.1"
+    },
+    "youwol": {
+        "pipeline": {
+            "name": "yw_pipeline_webpack_ts",
+            "version": "0.0.0"
+        },
+        "cdnDependencies": {}
+    }
+}
