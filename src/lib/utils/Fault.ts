@@ -24,6 +24,15 @@ export const enum SensOfMovement {
     UKN
 }
 
+const mvts = ['N', 'I', 'RL', 'LL', 'N_RL', 'N_LL', 'I_RL', 'I_LL', 'UKN']
+
+export function sensOfMovementExists(s: string): boolean {
+    if (s.length === 0) {
+        return true
+    }
+    return mvts.includes(s)
+}
+
 export function getSensOfMovementFromString(s: string): SensOfMovement {
     switch(s) {
         case 'N': return SensOfMovement.N

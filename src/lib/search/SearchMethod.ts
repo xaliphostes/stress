@@ -1,4 +1,5 @@
 import { Data } from "../data"
+import { Engine } from "../geomeca"
 import { MisfitCriteriunSolution } from "../InverseMethod"
 import { Matrix3x3} from "../types/math"
 
@@ -8,6 +9,8 @@ import { Matrix3x3} from "../types/math"
 export interface SearchMethod {
 
     setInteractiveSolution({rot, stressRatio}:{rot: Matrix3x3, stressRatio: number}): void
+
+    setEngine(engine: Engine): void
 
     /**
      * 

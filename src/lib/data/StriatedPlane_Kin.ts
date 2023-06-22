@@ -1,9 +1,10 @@
 import { Matrix3x3, normalizeVector, scalarProductUnitVectors, Vector3 } from "../types"
 import { Data } from "./Data"
 import { faultStressComponents } from "../types/mechanics"
-import { Fault, Direction, SensOfMovement } from "../utils/Fault"
+import { Fault, Direction, SensOfMovement, getDirectionFromString, directionExists, getSensOfMovementFromString, sensOfMovementExists } from "../utils/Fault"
 import { FractureStrategy, StriatedPlaneProblemType } from "./types"
 import { DataParameters } from "./DataParameters"
+import { TensorParameters } from "../geomeca"
 
 /**
  * @category Data
@@ -20,15 +21,15 @@ export class StriatedPlaneKin extends Data {
 
     initialize(params: DataParameters[]): boolean {
         if (Number.isNaN(params[0].strike)) {
-            throw new Error('Missing strike angle for StriatedPlaneKin')
+            throw new Error('Missing strike angle for Striated Plane')
         }
 
         if (Number.isNaN(params[0].dip)) {
-            throw new Error('Missing dip angle for StriatedPlaneKin')
+            throw new Error('Missing dip angle for Striated Plane')
         }
 
         if (params[0].dip < 90 && Number.isNaN(params[0].dipDirection)) {
-            throw new Error('Missing dip direction for StriatedPlaneKin')
+            throw new Error('Missing dip direction for Striated Plane')
         }
 
         // Check that nPlane and nStriation are unit vectors
@@ -60,7 +61,7 @@ export class StriatedPlaneKin extends Data {
         return displ !== undefined
     }
 
-    cost({displ, strain, stress}:{displ: Vector3, strain: Matrix3x3, stress: Matrix3x3}): number {
+    cost({displ, strain, stress}:{displ: Vector3, strain: TensorParameters, stress: TensorParameters}): number {
         if (this.problemType === StriatedPlaneProblemType.DYNAMIC) {
             // For the first implementation, use the W&B hyp.
             // let d = tensor_x_Vector({T: stress, V: this.nPlane}) // Cauchy
@@ -68,7 +69,7 @@ export class StriatedPlaneKin extends Data {
 
             // Calculate shear stress parameters
             // Calculate the magnitude of the shear stress vector in reference system S
-            const {shearStress, normalStress, shearStressMag} = faultStressComponents({stressTensor: stress, normal: this.nPlane})
+            const {shearStress, normalStress, shearStressMag} = faultStressComponents({stressTensor: stress.S, normal: this.nPlane})
             let cosAngularDifStriae = 0
 
             if ( shearStressMag > 0 ) { // shearStressMag > Epsilon would be more realistic ***
@@ -111,22 +112,23 @@ export class StriatedPlaneKin extends Data {
     }
 
     protected getMapDirection(s: string): Direction {
-        if (!mapDirection.has(s)) {
+        if (!directionExists(s)) {
             throw new Error(`Direction ${s} is not defined (or incorrectly defined)`)
         }
-        return mapDirection.get(s)
+        return getDirectionFromString(s)
     }
     
     protected getSensOfMovement(s: string): SensOfMovement {
-        if (!mapSensOfMovement.has(s)) {
+        if (!sensOfMovementExists(s)) {
             throw new Error(`Sens of movement ${s} is not defined (or incorrectly defined)`)
         }
-        return mapSensOfMovement.get(s)
+        return getSensOfMovementFromString(s)
     }
 }
 
 // ----------------------------------------------------
 
+/*
 const mapDirection = new Map<string, Direction>()
 mapDirection.set("E", Direction.E)
 mapDirection.set("N", Direction.N)
@@ -147,3 +149,4 @@ mapSensOfMovement.set("Normal - Left Lateral", SensOfMovement.N_LL)
 mapSensOfMovement.set("Normal - Right Lateral", SensOfMovement.N_RL)
 mapSensOfMovement.set("Right Lateral", SensOfMovement.RL)
 mapSensOfMovement.set("Unknown", SensOfMovement.UKN)
+*/

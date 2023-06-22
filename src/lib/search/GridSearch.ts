@@ -1,4 +1,5 @@
 import { Data } from "../data"
+import { Engine, HomogeneousEngine } from "../geomeca"
 import { cloneMisfitCriteriunSolution, MisfitCriteriunSolution } from "../InverseMethod"
 import { cloneMatrix3x3, deg2rad, Matrix3x3, newMatrix3x3, newMatrix3x3Identity } from "../types/math"
 import { multiplyTensors, transposeTensor } from "../types/math"
@@ -39,6 +40,7 @@ export class GridSearch implements SearchMethod {
     private deltaStressRatio = 0
     private Rrot: Matrix3x3 = undefined
     private stressRatio0 = 0
+    private engine: Engine = new HomogeneousEngine()
 
     constructor({
         deltaGridAngle=1,
@@ -54,6 +56,10 @@ export class GridSearch implements SearchMethod {
         this.deltaStressRatio = deltaStressRatio
         // this.Rrot = Rrot
         // this.stressRatio0 = stressRatio
+    }
+
+    setEngine(engine: Engine): void {
+        this.engine = engine
     }
 
     setInteractiveSolution({rot, stressRatio}:{rot: Matrix3x3, stressRatio: number}): void {
@@ -133,17 +139,19 @@ export class GridSearch implements SearchMethod {
                     //  Wrot = Drot Rrot
                     Wrot  = transposeTensor( WTrot )
 
+                    this.engine.setHrot(Wrot)
+
                     for (let l = - nodesStressRatioInterval; l <= nodesStressRatioInterval; l++) {
                         // Stress ratio variation around R = (S2-S3)/(S1-S3)
                         let stressRatio = this.stressRatio0 + l * this.deltaStressRatio
                         if ( stressRatio >= 0 && stressRatio <= 1 ) {   // The strees ratio is in interval [0,1]
 
                             // Calculate the stress tensor STdelta in reference frame S from the stress tensor in reference frame S''
-                            let STdelta = stressTensorDelta(stressRatio, Wrot, WTrot)
+                            const STdelta = stressTensorDelta(stressRatio, Wrot, WTrot)
+                            this.engine.setRemoteStress(STdelta)
 
                             const misfit = data.reduce( (previous, current) => {
-                                //console.log(current.cost({stress: STdelta}))
-                                return previous + current.cost({stress: STdelta}
+                                return previous + current.cost({stress: this.engine.stress(current.position)}
                             )} , 0) / data.length
 
                             if (misfit < newSolution.misfit) {

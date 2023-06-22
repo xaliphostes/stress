@@ -1,4 +1,5 @@
 import { Data } from "../data"
+import { Engine, HomogeneousEngine } from "../geomeca"
 import { cloneMisfitCriteriunSolution, MisfitCriteriunSolution } from "../InverseMethod"
 import { 
     cloneMatrix3x3, Matrix3x3, multiplyTensors, 
@@ -23,11 +24,7 @@ export class MonteCarlo implements SearchMethod {
     private stressRatio0: number
     private Rrot: Matrix3x3 = undefined
     private RTrot: Matrix3x3 = undefined
-
-    setInteractiveSolution({rot, stressRatio}:{rot: Matrix3x3, stressRatio: number}): void {
-        this.Rrot = rot
-        this.stressRatio0 = stressRatio
-    }
+    private engine: Engine = new HomogeneousEngine()
 
     constructor(
         {stressRatio=0.5, stressRatioHalfInterval=0.25, rotAngleHalfInterval=0.1, nbRandomTrials=100, Rrot=newMatrix3x3Identity()}:
@@ -39,6 +36,15 @@ export class MonteCarlo implements SearchMethod {
         this.stressRatioHalfInterval = stressRatioHalfInterval
         this.Rrot = Rrot
         this.RTrot = transposeTensor(this.Rrot)
+    }
+
+    setEngine(engine: Engine): void {
+        this.engine = engine
+    }
+
+    setInteractiveSolution({rot, stressRatio}:{rot: Matrix3x3, stressRatio: number}): void {
+        this.Rrot = rot
+        this.stressRatio0 = stressRatio
     }
 
     run(data: Data[], misfitCriteriaSolution: MisfitCriteriunSolution): MisfitCriteriunSolution {
@@ -105,10 +111,17 @@ export class MonteCarlo implements SearchMethod {
             // STdelta is defined according to the continuum mechanics sign convention : compression < 0
             let STdelta = stressTensorDelta(stressRatio, Wrot, WTrot)
 
-            const misfit = data.reduce( (previous, current) => {
-                return previous + current.cost({stress: STdelta, rot: Wrot}
-            )} , 0) / data.length
+            // const misfit = data.reduce( (previous, current) => {
+            //     return previous + current.cost({stress: STdelta, rot: Wrot}
+            // )} , 0) / data.length
 
+            
+            this.engine.setRemoteStress(STdelta)
+            this.engine.setHrot(Wrot)
+            const misfit = data.reduce( (previous, current) => {
+                return previous + current.cost({stress: this.engine.stress(current.position)})
+            } , 0) / data.length
+            
             if (misfit < newSolution.misfit) {
                 newSolution.misfit = misfit
                 newSolution.rotationMatrixD = cloneMatrix3x3(Drot)
@@ -116,6 +129,7 @@ export class MonteCarlo implements SearchMethod {
                 newSolution.stressRatio = stressRatio
                 newSolution.stressTensorSolution = STdelta
             }
+
             // const misfitSum  = misfitCriteriaSolution.criterion.value(STdelta)
             // if (misfitSum < misfitCriteriaSolution.misfitSum) {
             //     misfitCriteriaSolution.misfitSum      = misfitSum

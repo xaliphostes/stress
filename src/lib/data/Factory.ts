@@ -3,8 +3,8 @@ import { ExtensionFracture } from './ExtensionFracture'
 import { StriatedPlaneKin } from './StriatedPlane_Kin'
 import { StriatedPlaneFriction1 } from './StriatedPlane_Friction1'
 import { StriatedPlaneFriction2 } from './StriatedPlane_Friction2'
-import { CompactionShearBandsKin } from './CompactionShearBands_Kin'
-import { ConjugateFaultsKin } from './ConjugateFaults_Kin'
+import { ConjugateCompactionalShearBands } from './ConjugateCompactionalShearBands'
+import { ConjugateFaults } from './ConjugateFaults'
 
 /* eslint @typescript-eslint/no-explicit-any: off -- need to have any here for the factory */
 export namespace DataFactory {
@@ -41,5 +41,5 @@ DataFactory.bind(ExtensionFracture, 'Extension Fracture')
 DataFactory.bind(StriatedPlaneKin, 'Striated Plane')
 DataFactory.bind(StriatedPlaneFriction1, 'Striated Plane Friction1')
 DataFactory.bind(StriatedPlaneFriction2, 'Striated Plane Friction2')
-DataFactory.bind(CompactionShearBandsKin, 'Compaction Shear Bands')
-DataFactory.bind(ConjugateFaultsKin, 'Conjugate Faults')
+DataFactory.bind(ConjugateCompactionalShearBands, 'Compaction Shear Bands')
+DataFactory.bind(ConjugateFaults, 'Conjugate Faults')

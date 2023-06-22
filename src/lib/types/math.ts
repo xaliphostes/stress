@@ -286,7 +286,7 @@ export function rotationParamsFromRotTensor(rotTensor: Matrix3x3): { rotAxis: Ve
 
     let rotVector: Vector3
 
-    // The axis of rotation is determined form the compoientns of the matrix of a proper rotation
+    // The axis of rotation is determined from the components of the matrix of a proper rotation
     rotVector[0] = rotTensor[2][1] - rotTensor[1][2]
     rotVector[1] = rotTensor[0][2] - rotTensor[2][0]
     rotVector[2] = rotTensor[1][0] - rotTensor[0][1]
@@ -341,7 +341,7 @@ export function spherical2unitVectorCartesian(spheriCoords: SphericalCoords): Ve
     // phi : azimuthal angle in interval [0, 2 PI), measured anticlockwise from the X axis (East direction) in reference system S
     // theta: colatitude or polar angle in interval [0, PI/2], measured downward from the zenith (upward direction)
 
-    const V = newVector3D() as Vector3
+    let V = newVector3D() as Vector3
 
     V[0] = Math.sin(spheriCoords.theta) * Math.cos(spheriCoords.phi)
     V[1] = Math.sin(spheriCoords.theta) * Math.sin(spheriCoords.phi)
@@ -425,20 +425,20 @@ export function minRotAngleRotationTensor(rotTensor: Matrix3x3, EPS = 1e-7): num
     // let rotTensor be the rotation tensor between two right-handed references systems Sa = (Xa, Ya, Za) and Sb = (Xb, Yb, Zb) such that:
     //      Vb = rotTensor Va
     // where Va and Vb are corresponding vectors defined in reference systems Sa and Sb, respectively
-    // Sa may correspond to the reference system of the principal directions of a stress tensor defined by a pair of conjugate faults
-    // or neoformed striated plane.
-    // Sb is the reference system of the principal directions of a stress tensor defined by the interactive search
-    // or an inverse method. 
-    // Recall that the pricipal stress direction (Sigma 1, Sigma 3, Sigma 2) are parallel to (X, Y, Z), respectively
+    // Sa may correspond to the reference system of the principal directions of a stress tensor defined by microstructure kinematics:
+    //      a pair of conjugate faults or a neoformed striated plane.
+    // Sb may be the reference system of the principal directions of a hypothetical stress tensor defined by the interactive search
+    //      or an inverse method. 
+    // Recall that the principal stress direction (Sigma 1, Sigma 3, Sigma 2) are parallel to (X, Y, Z), respectively
 
     // This function calculates the minimum rotation angle between Sa and Sb, by considering the four possible right-handed reference systems
-    // that are consistent with pricipal stress directions en system Sb. 
+    // that are consistent with principal stress directions in system Sb. 
 
     // The angle of rotation associated to rotTensor is defined by the trace tr(rotTensor), according to the relation:
     //      tr(rotTensor) = 1 + 2 cos(rotAngle)
     // where rotAngle is in interval [0,PI]
 
-    // Note that the inverse rotation tensor defined by the transpoded matrix has the same trace. 
+    // Note that the inverse rotation tensor defined by the transposed matrix has the same trace. 
     // Thus the rotation angle is the same for tensors rotTensor and rotTensorT (i.e., transposed)
 
     let traceRotTensor: number[] = new Array(4)
@@ -468,4 +468,66 @@ export function minRotAngleRotationTensor(rotTensor: Matrix3x3, EPS = 1e-7): num
     }
 
     return Math.acos( cosMinRotAngle )
+}
+
+/**
+ * @category Math
+ */
+export function rotationTensor_Sa_Sb( { Xb, Yb, Zb } : { Xb: Vector3, Yb: Vector3, Zb: Vector3 } ): Matrix3x3 {
+    // Calculate the rotation tensor rotTensor between two reference systems Sa and Sb, such that:
+    //  Vb = rotTensor  Va
+    //  Va = rotTensorT Vb        (rotTensorT is tensor rotTensor transposed)
+    //  Sa = (Xa,Ya,Za) is a right-handed reference system defined by 3 unit vectors (Xa,Ya,Za)
+    //  Sb = (Xb,Yb,Zb) is a right-handed reference system defined by 3 unit vectors (Xb,Yb,Zb)
+    //  We supposse that the coordinates of unit vectors (Xb,Yb,Zb) are defined in reference system Sa    
+    //  Under that suppsition, the lines of rotTensor are given by the unit vectors (Xb,Yb,Zb)
+
+    let rotTensor: Matrix3x3 = newMatrix3x3()
+
+    // First line is defined by unit vector Xb
+    // Note that the scalar product Xb . Va = Vb(x) i.e., The coordinate of vector Vb in Xb direction 
+    rotTensor[0][0] = Xb[0]
+    rotTensor[0][1] = Xb[1]
+    rotTensor[0][2] = Xb[2]
+
+    // Second line is defined by unit vector Yb
+    // Note that the scalar product Yb . Va = Vb(y) i.e., The coordinate of vector Vb in Yb direction 
+    rotTensor[1][0] = Yb[0]
+    rotTensor[1][1] = Yb[1]
+    rotTensor[1][2] = Yb[2]
+
+    // Third line is defined by unit vector Zb
+    // Note that the scalar product Zb . Va = Vb(z) i.e., The coordinate of vector Vb in Zb direction 
+    rotTensor[2][0] = Zb[0]
+    rotTensor[2][1] = Zb[1]
+    rotTensor[2][2] = Zb[2]
+
+    return rotTensor
+}
+
+export function trendPlunge2unitAxis( { trend, plunge } : { trend: number, plunge: number } ): Vector3 {
+    // (phi,theta) : spherical coordinate angles defining the unit vector parallel to a micro/meso structure (e.g., Crystal Fibers in Vein or styloilte teeth).
+    //               in the geographic reference system: S = (X,Y,Z) = (E,N,Up)
+
+    // phi : azimuthal angle in interval [0, 2 PI), measured anticlockwise from the X axis (East direction) in reference system S
+    // theta: colatitude or polar angle in interval [0, PI], measured downward from the zenith (upward direction)
+    //        theta points downward for positive plunges, and upward for negative plunges.
+
+    const coordinates: SphericalCoords = new SphericalCoords()
+    const unitAxis = newVector3D() as Vector3
+
+    // The polar angle (or colatitude) theta is calculated in radians from the plunge of the Crystal Fibers :
+    coordinates.theta = deg2rad( this.plunge ) + Math.PI / 2
+
+    // The azimuthal angle is calculated in radians from the trend of the Crystal Fibers :
+    //      trend + phi = PI / 2 
+    coordinates.phi = deg2rad( 90 - this.trend )
+
+    if  ( this.crystal_fibers_trend > 90 ) {
+        // phi < 0
+        coordinates.phi = coordinates.phi + 2 * Math.PI
+    }
+    // The unit vector parallel to the Crystal Fibers is defined by angles (phi, theta) in spherical coordinates.
+    // normal: unit vector parallel to the Crystal Fibers in Vein defined in the geographic reference system: S = (X,Y,Z)
+    return spherical2unitVectorCartesian(coordinates)       
 }

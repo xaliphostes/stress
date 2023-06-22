@@ -1,4 +1,5 @@
-import { Matrix3x3, Vector3 } from "../types/math"
+import { TensorParameters } from "../geomeca/TensorParameters"
+import { Matrix3x3, Point3D, Vector3 } from "../types/math"
 import { DataParameters } from "./DataParameters"
 
 /**
@@ -8,7 +9,12 @@ import { DataParameters } from "./DataParameters"
 export abstract class Data  {
     protected weight_: number = 1
     protected active_ = true
+    protected pos: Point3D = [0,0,0]
     //private userSpace_ : UserSpace = UserSpace.INVERSE
+
+    get position(): Point3D {
+        return this.pos
+    }
 
     weight(): number {
         return this.weight_
@@ -55,9 +61,13 @@ export abstract class Data  {
      * @param options.stress The computed stress tensor if any
      * @param options.strain The computed strain tensor if any
      */
+    // abstract cost(
+    //     { displ, strain, stress, rot }:
+    //     { displ?: Vector3, strain?: Matrix3x3, stress?: Matrix3x3, rot?: Matrix3x3 }): number
+
     abstract cost(
-        { displ, strain, stress, rot }:
-        { displ?: Vector3, strain?: Matrix3x3, stress?: Matrix3x3, rot?: Matrix3x3 }): number
+        { displ, strain, stress }:
+        { displ?: Vector3, strain?: TensorParameters, stress?: TensorParameters }): number
 
     /**
      * After stress inersion, get the inered data orientation/magnitude/etc for this specific Data

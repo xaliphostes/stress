@@ -1,4 +1,15 @@
-import { add_Vectors, constant_x_Vector, Matrix3x3, newVector3D, normalizeVector, scalarProductUnitVectors, tensor_x_Vector, Vector3, vectorMagnitude } from "../types"
+import { TensorParameters } from "../geomeca"
+import { 
+    add_Vectors, 
+    constant_x_Vector, 
+    Matrix3x3, 
+    newVector3D, 
+    normalizeVector, 
+    scalarProductUnitVectors, 
+    tensor_x_Vector, 
+    Vector3, 
+    vectorMagnitude
+} from "../types"
 import { DataParameters } from "./DataParameters"
 import { StriatedPlaneKin } from "./StriatedPlane_Kin"
 
@@ -47,7 +58,7 @@ export class StriatedPlaneFriction1 extends StriatedPlaneKin {
         return true
     }
 
-    cost({ displ, strain, stress }: { displ: Vector3, strain: Matrix3x3, stress: Matrix3x3 }): number {
+    cost({ displ, strain, stress }: { displ: Vector3, strain: TensorParameters, stress: TensorParameters }): number {
         // For each striated fault the misfit distance is defined in terms of an angular distance between the stress vector F
         // and the closest axis Fkf that satisfies both the kinematical and frictional costraints.
         // In other words, Fkf is such that its projection on the fault plane is parallel to the measured striation 
@@ -92,7 +103,7 @@ export class StriatedPlaneFriction1 extends StriatedPlaneKin {
 
         // In principle, principal stresses are negative: (sigma 1, sigma 2, sigma 3) = (-1, -R, 0) 
         // Calculate total stress vector F:  
-        stress2 = tensor_x_Vector({ T: stress, V: this.nPlane })
+        stress2 = tensor_x_Vector({ T: stress.S, V: this.nPlane })
 
         // stress_Shifted_Sigma_n = Stress vector obtained by adding the shift of the normal stress component deltaNormalStress
         //      i.e., in a 'frictional' reference frame such that the Mohr Coulomb line intersects the origin
