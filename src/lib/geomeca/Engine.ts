@@ -1,10 +1,15 @@
 import { Matrix3x3, Vector3 } from "../types"
-import { TensorParameters } from "./TensorParameters"
+import { HypotheticalSolutionTensorParameters } from "./HypotheticalSolutionTensorParameters"
 
+/**
+ * 
+ */
 export interface Engine {
-    setRemoteStress(S: Matrix3x3): void
-    stress(p: Vector3): TensorParameters
-
-    setHrot(r: Matrix3x3): void
+    setHStress(hRot: Matrix3x3, stressRatio: number): void
+    
     Hrot(): Matrix3x3
+    stressRatio(): number
+    S(): Matrix3x3
+
+    stress(p: Vector3): HypotheticalSolutionTensorParameters
 }

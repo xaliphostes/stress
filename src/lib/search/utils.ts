@@ -9,15 +9,17 @@ import { Matrix3x3, multiplyTensors, newMatrix3x3, stressTensorPrincipalAxes, Ve
  */
 export function stressTensorDelta(stressRatio: number, Wrot: Matrix3x3, WTrot: Matrix3x3): Matrix3x3 {
 
-    // Calculate the stress tensor STdelta in reference frame S from the stress tensor in reference frame S'':
+    // Calculate the stress tensor STdelta in reference frame S from the stress tensor in reference frame Sw:
     //      STdelta = WTrot STPdelta Wrot
     //
     // where
     //
-    //      S'' = (X'',Y'',Z'') is the principal stress reference frame in the search grid node(i,j,k,l), parallel to (sigma_1, sigma_3, sigma_2);
+    //      Sw = (Xw,Yw,Zw) is the principal stress reference frame in the search grid node(i,j,k,l), parallel to (sigma_1, sigma_3, sigma_2) 
+    //                      ('w' stands for 'winning' solution);
     //      S   = (X, Y, Z ) is the geographic reference frame  oriented in (East, North, Up) directions.
+
     //      STPdelta = Stress Tensor in the Principal stress reference frame (i.e. diagonal tensor with eigenvalues (1,0,StressRatio).
-    //      The principal stress values are negative since stress calculations are done using the continuum mechanics convention.
+    //      The principal stress values are NEGATIVE since stress calculations are done using the CONTINUUM MECHNAICS CONVENTION.
     const sigma = [-1, 0, -stressRatio] as Vector3
     let STPdelta =  stressTensorPrincipalAxes(sigma)
 

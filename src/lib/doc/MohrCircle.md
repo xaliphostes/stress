@@ -3,15 +3,15 @@ Each fault is characterized by a normal vector pointing upward
 fault.normal[0],fault.normal[1],fault.normal[2]
 ```
 
-Calculate the normal vector in reference frame `S'`:
+Calculate the normal vector in reference frame `Sr`:
 ```js
 fault.normalSp[0],fault.normalSp[1],fault.normalSp[2]
 ```
 
 This vector is calculated in the stress tensor reference system using the following tranformation:
-    `X' = R X`,  where X and X' are vectors in refereence frames S and S'
+    `Xr = R X`,  where X and Xr are vectors in refereence frames S and Sr
 
-`S' = (X',Y',Z')` is the principal stress reference frame, parallel to (sigma_1, sigma_3, sigma_2);
+`Sr = (Xr,Yr,Zr)` is the principal stress reference frame, parallel to (sigma_1, sigma_3, sigma_2);
 `S =  (X, Y, Z )` is the geographic reference frame  oriented in (East, North, Up) directions.
 
 Let `R` be the rotation matrix (i.e., the inverse matrix of `R` Transposed in function rotationMatrix)

@@ -88,7 +88,7 @@ export class FibonacciLattice implements SearchMethod {
                 // Only positive rotation angles are examined for each rotation axis
 
     
-                // Calculate rotation tensors Drot and Wrot between systems S, S' and S''
+                // Calculate rotation tensors Drot and Wrot between systems S, Sr and Sw
                 rotationTensors(j)
 
                 // Iterate within the stress ratio interval and calculate the rotation axes and 
@@ -105,7 +105,7 @@ export class FibonacciLattice implements SearchMethod {
                         let stressRatio = this.stressRatio0 + l * this.deltaStressRatio
                         if ( stressRatio >= 0 && stressRatio <= 1 ) {   // The strees ratio is in interval [0,1]
 
-                            // Calculate the stress tensor STdelta in reference frame S from the stress tensor in reference frame S''
+                            // Calculate the stress tensor STdelta in reference frame S from the stress tensor in reference frame Sw
                             let STdelta = stressTensorDelta(stressRatio, Wrot, WTrot)
 
                             const misfitSum  = misfitCriteriaSolution.criterion.value(STdelta)
@@ -137,17 +137,17 @@ export class FibonacciLattice implements SearchMethod {
         // rotAngle = rotation angle around the rotation axis 
         this.rotAngle  = j * this.deltaRotAngle
     
-        // Calculate rotation tensors Drot and DTrot between systems S' and S'' such that:
-        //  V'  = DTrot V''        (DTrot is tensor Drot transposed)
-        //  V'' = Drot  V'
+        // Calculate rotation tensors Drot and DTrot between systems Sr and Sw such that:
+        //  Vr  = DTrot Vw        (DTrot is tensor Drot transposed)
+        //  Vw = Drot  Vr
         this.DTrot = properRotationTensor({nRot: this.rotAxis, angle: this.rotAngle})
         this.Drot  = transposeTensor(this.DTrot)
 
-        // Calculate rotation tensors Wrot and WTrot between systems S and S'': WTrot = RTrot DTrot, such that:
-        //  V   = WTrot V''        (WTrot is tensor Wrot transposed)
-        //  V'' = Wrot  V
+        // Calculate rotation tensors Wrot and WTrot between systems S and Sw: WTrot = RTrot DTrot, such that:
+        //  V   = WTrot Vw        (WTrot is tensor Wrot transposed)
+        //  Vw = Wrot  V
         //  S   =  (X, Y, Z ) is the geographic reference frame  oriented in (East, North, Up) directions.
-        //  S'' =  (X'', Y'', Z'' ) is the principal reference frame for a fixed node in the search grid (sigma_1, sigma_3, sigma_2)
+        //  Sw =  (Xw, Yw, Zw ) is the principal reference frame for a fixed node in the search grid (sigma_1, sigma_3, sigma_2)
         this.WTrot = multiplyTensors({A: this.RTrot, B: this.DTrot })
         //  Wrot = Drot Rrot
         this.Wrot  = transposeTensor( this.WTrot )
@@ -160,7 +160,7 @@ export class FibonacciLattice implements SearchMethod {
         let stressRatio = this.stressRatio0 + l * this.deltaStressRatio
         if ( stressRatio >= 0 && stressRatio <= 1 ) {   // The strees ratio is in interval [0,1]
 
-            // Calculate the stress tensor STdelta in reference frame S from the stress tensor in reference frame S''
+            // Calculate the stress tensor STdelta in reference frame S from the stress tensor in reference frame Sw
             let this.STdelta = stressTensorDelta(stressRatio, this.Wrot, this.WTrot)
 
             const this.misfitSum  = misfitCriteriaSolution.criterion.value(this.STdelta)
@@ -246,7 +246,7 @@ export class FibonacciLattice implements SearchMethod {
         let stressRatio = this.stressRatio0 + l * this.deltaStressRatio
         if ( stressRatio >= 0 && stressRatio <= 1 ) {   // The strees ratio is in interval [0,1]
 
-            // Calculate the stress tensor STdelta in reference frame S from the stress tensor in reference frame S''
+            // Calculate the stress tensor STdelta in reference frame S from the stress tensor in reference frame Sw
             let this.STdelta = stressTensorDelta(stressRatio, this.Wrot, this.WTrot)
 
             const misfitSum  = misfitCriteriaSolution.criterion.value(this.STdelta)
@@ -280,13 +280,14 @@ export class FibonacciLattice implements SearchMethod {
 function rotationTensorLocalGrid(cosDeltaPhi: number, sinDeltaPhi : number, cosDeltaTheta : number,sinDeltaTheta : number,
     cosDeltaAlpha : number, sinDeltaAlpha: number ): Matrix3x3
 {
-    // Calculate the rotation tensor DT between reference frame S' and S'', such that:
-    //  V'  = DT V''        (DT is tensor D transposed)
-    //  V'' = D  V'
-    //  S' = (X',Y',Z') is the principal stress reference frame obtained by the user from the interactive analysis, parallel to (sigma_1, sigma_3, sigma_2);
-    //  S'' =  (X'', Y'', Z'' ) is the principal reference frame for a fixed node in the search grid (sigma_1, sigma_3, sigma_2)
+    // Calculate the rotation tensor DT between reference frame Sr and Sw, such that:
+    //  Vr  = DT Vw        (DT is tensor D transposed)
+    //  Vw = D  Vr
+    //  Sr = (Xr,Yr,Zr) is the principal stress reference frame obtained by the user from the interactive analysis, parallel to (sigma_1, sigma_3, sigma_2);
+    //       'r' stands for 'rough' solution
+    //  Sw =  (Xw, Yw, Zw ) is the principal reference frame for a fixed node in the search grid (sigma_1, sigma_3, sigma_2) ('w' stands for 'winning' solution)
 
-    // The columns of matrix D are given by the unit vectors parallel to X1'', X2'', and X3'' defined in reference system S':
+    // The columns of matrix D are given by the unit vectors parallel to X1'', X2'', and X3'' defined in reference system Sr:
 
     const DT: Matrix3x3 = newMatrix3x3()
 

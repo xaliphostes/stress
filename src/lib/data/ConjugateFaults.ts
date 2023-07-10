@@ -1,13 +1,17 @@
-import { add_Vectors, Matrix3x3, multiplyTensors, normalizedCrossProduct, normalizeVector, scalarProductUnitVectors, transposeTensor, Vector3 } from "../types"
+import { add_Vectors, Matrix3x3, multiplyTensors, 
+        normalizedCrossProduct, normalizeVector, 
+        scalarProductUnitVectors, transposeTensor, Vector3 
+    } from "../types"
 import { Data } from "./Data"
-import { FractureStrategy, StriatedPlaneProblemType } from "./types"
-import { ConjugatePlanes, getDirectionFromString, getSensOfMovementFromString } from "../utils"
+import { DataArguments, FractureStrategy, StriatedPlaneProblemType, Tokens } from "./types"
+import { getDirectionFromString, getSensOfMovementFromString, ConjugatePlanesHelper, toFloat, Direction, SensOfMovement, isNumber, toInt } from "../utils"
 import { minRotAngleRotationTensor } from "../types/math"
 import { DataParameters } from "./DataParameters"
 import { TensorParameters } from "../geomeca"
+import { DataArgument, DataDescription, DataMessages } from "./DataDescription"
 
 /** 
- conjugate fault planes: 
+ Conjugate Fault Planes: 
  A pair of conjugate fault planes is defined by two planes whose plane of movement is perpendicular to the intersection line between the planes.
  The plane of movement is defined by the two normal vectors to the fault planes.
  In principle, the data type corresponding to conjugate fault planes includes the type of mouvement but NOT the striation.
@@ -15,11 +19,11 @@ import { TensorParameters } from "../geomeca"
     The compressional axis Sigma 1 is located in the plane of movement and bisects the acute angle (<= 90°) between planes
     The extensional axis Sigma 3 is located in the plane of movement and bisects the obtuse angle (>= 90°) between planes
 
- Conjugate fault planes are defined in the input file in TWO CONSECUTIVE LINES.
+ Conjugate fault planes are defined in the input file in TWO CONSECUTIVE LINES; they are numbered one after the other
  Each line specifies all the available data for each conjugate fault plane.
 
  Several data sets defining two conjugate fault planes are considered:
- 1) Case 1: The geometry and kinematics of the conjugate fault planes are defined, yet the rake angles are NOT defined.
+ 1) General Case: The geometry and kinematics of the conjugate fault planes are defined, yet the rake angles are NOT defined.
 
     The orientation of the principal axes are calculated from the geometry of the conjugate fault planes.
         The intermediate axis Sigma 2 is parallel to the intersection line between the conjugate fault planes;
@@ -29,7 +33,7 @@ import { TensorParameters } from "../geomeca"
         Fault dip: [0, 90]
         Dip direction: (N, E, S, W) or a combination of two directions (NE, SE, SW, NW).
     b) The rake angles defining the slip vectors are NOT defined
-    c) The type of mouvement for each conjugate fault plane is an OPTIONAL parameter :
+    c) The type of mouvement for each conjugate fault plane is an OPTIONAL parameter (i.e. it may be unknown - UKN)
        However, it is highly recommended to include the type of mouvment for verification purposes, 
             indicating both the dip-slip and strike-slip compoenents, when possible. 
           Dip-slip component:
@@ -38,14 +42,14 @@ import { TensorParameters } from "../geomeca"
           Strike-slip componenet:
               RL = Right-Lateral fault
               LL = Left-Lateral fault
-        Type of mouvement: N, I, RL, LL, N-RL, N-LL, I-RL, I-LL 
-2) Case 2: The geometry, the striation (i.e., the rake), and the kinematics of one or both conjugate fault planes are defined.
-        This case is not considered as the striations define redundant information for constraining the stress tensor orientation.
-        Conjugate fault planes with striations can be considered separately as neoformed striated planes for which the friction angle is known
-3) Particular case:
+        Type of mouvement: N, I, RL, LL, N-RL, N-LL, I-RL, I-LL; UKN 
+2) Special Case 1: The geometry, the striation (i.e., the rake), and the kinematics of one or both conjugate fault planes are defined.
+        This case is NOT considered as the striations define redundant information for constraining the stress tensor orientation.
+        Conjugate fault planes with striations can be considered separately as Neoformed Striated Planes for which the friction angle is known
+3) Special Case 2:
     If the striation is known for one of the conjugate faults, then the other plane
     can be defined by one axis that is contained in the plane. 
-    However, this case would require a special format in the input file, which is inconvenient...
+    However, this case is NOT considered since it would require a special format in the input file, which is inconvenient.
 
     @category Data
  */
@@ -79,16 +83,11 @@ export class ConjugateFaults extends Data {
     protected striation1 = false
     protected striation2 = false
 
-    //protected nSigma1_rot: Vector3 = undefined
-    //protected nSigma3_rot: Vector3 = undefined
-
-    // params1 and params2 contain data defining conjugate fault planes 1 and 2
-    // we have replaced azimuth by strike
-
     nbLinkedData(): number {
         return 2
     }
 
+    /*
     initialize(params: DataParameters[]): boolean {
 
         let nPlane2Neg: Vector3
@@ -131,7 +130,7 @@ export class ConjugateFaults extends Data {
             rake: params[0].rake,
             strikeDirection: getDirectionFromString(params[0].strikeDirection)
         }
-        this.cf1 = ConjugatePlanes.create(this.params1)
+        this.cf1 = ConjugatePlanesHelper.create(this.params1)
 
         // conjugate fault plane 1 is defined: (strike1, dip1, dipDirection1)
         this.plane1 = true
@@ -149,7 +148,7 @@ export class ConjugateFaults extends Data {
             rake: params[1].rake,
             strikeDirection: getDirectionFromString(params[1].strikeDirection)
         }
-        this.cf2 = ConjugatePlanes.create(this.params2)
+        this.cf2 = ConjugatePlanesHelper.create(this.params2)
         // conjugate fault plane 1 is defined: (strike1, dip1, dipDirection1)
         this.plane2 = true
         // Calculate the unit vector normal to plane 1: nPlane1
@@ -159,15 +158,74 @@ export class ConjugateFaults extends Data {
         /** this.nStriation = nStriation
         // this.nPerpStriation = nPerpStriation
 
-        // Check orthogonality
-        // const sp = scalarProductUnitVectors({U: nPlane, V: nStriation})
-        //*if (Math.abs(sp) >this.EPS) {
-            throw new Error(`striation is not on the fault plane. Dot product gives ${sp}`)
-        } **/
+        
 
-        this.checkConjugatePlanes()
+         c
 
         return true
+    }
+    */
+
+     performOneDataLine(toks: Tokens, result: DataMessages): any {
+        const arg: DataArgument = {
+            toks,
+            index: 0,
+            data: this,
+            result,
+            setIndex(i: number) {
+                this.index=i;
+                return this
+            }
+        }
+
+        const strike = DataDescription.getParameter(arg.setIndex(2))
+        
+        const dip = DataDescription.getParameter(arg.setIndex(3))
+
+        // -----------------------------------
+
+        let dipDirection = Direction.UNKOWN
+        if ( (dip !== 90) && (dip !== 0) ) {
+            // In the general case, the dip direction for non-horizontal and non-vertical planes
+            // must be defined in terms of a geographic direction: N, S, E, W, NE, SE, SW, NW
+            dipDirection = DataDescription.getParameter(arg.setIndex(4))
+        }
+
+        // -----------------------------------
+
+        const sensOfMovement = DataDescription.getParameter(arg.setIndex(8))
+
+        // -----------------------------------
+
+        return {
+            noPlane: toInt(toks[0]),
+            strike,
+            dipDirection,
+            dip,
+            sensOfMovement
+        }
+    }
+
+    initialize(args: DataArguments): DataMessages {
+        const result = { status: true, messages: [] }
+        
+        this.params1 = this.performOneDataLine(args[0], result)
+        this.cf1 = ConjugatePlanesHelper.create(this.params1)
+        // conjugate fault plane 1 is defined: (strike, dip, dipDirection)
+        this.plane1 = true
+        // Calculate the unit vector normal to plane 1: nPlane1
+        this.nPlane1 = this.cf1.nPlane
+
+        this.params2 = this.performOneDataLine(args[1], result)
+        this.cf2 = ConjugatePlanesHelper.create(this.params2)
+        // conjugate fault plane 2 is defined: (strike, dip, dipDirection)
+        this.plane2 = true
+        // Calculate the unit vector normal to plane 2: nPlane2
+        this.nPlane2 = this.cf2.nPlane
+
+        // this.checkConjugatePlanes()
+
+        return result
     }
 
     check({ displ, strain, stress }: { displ: Vector3, strain: Matrix3x3, stress: Matrix3x3 }): boolean {
@@ -183,25 +241,25 @@ export class ConjugateFaults extends Data {
         if (this.problemType === StriatedPlaneProblemType.DYNAMIC) {
             // The cost function uses the rotation tensor Mrot from reference system S to Sm, calculated in method checkCompactionShearBands
 
-            // The cost function for two conjugate faults is defined as the minimum angular rotation between system Sm and the stress tensor in system S' or S'':
+            // The cost function for two conjugate faults is defined as the minimum angular rotation between system Sm and the stress tensor in system Sr or Sw:
             //  S   =  (X, Y, Z ) is the geographic reference frame  oriented in (East, North, Up) directions.
-            //  S'  =  (X', Y', Z' ) is the principal reference frame chosen by the user in the interactive search phase.
-            //  S'' =  (X'', Y'', Z'' ) is the principal reference frame for a fixed node in the search grid (sigma_1, sigma_3, sigma_2)
-            // Rotation tensors Rrot and RTrot between systems S and S' are such that:
+            //  Sr  =  (Xr, Yr, Zr ) is the principal reference frame chosen by the user in the interactive search phase ('r' stands for 'rough' solution).
+            //  Sw =  (Xw, Yw, Zw ) is the principal reference frame for a fixed node in the search grid (sigma_1, sigma_3, sigma_2) ('w' stands for 'winning' solution)
+            // Rotation tensors Rrot and RTrot between systems S and Sr are such that:
 
-            //  V  = RTrot V'        (RTrot is tensor Rrot transposed)
-            //  V' = Rrot  V
+            //  V  = RTrot Vr        (RTrot is tensor Rrot transposed)
+            //  Vr = Rrot  V
 
-            // Rotation tensors Wrot and WTrot between systems S and S'' satisfy : WTrot = RTrot DTrot, such that:
-            //  V   = WTrot V''        (WTrot is tensor Wrot transposed)
-            //  V'' = Wrot  V
+            // Rotation tensors Wrot and WTrot between systems S and Sw satisfy : WTrot = RTrot DTrot, such that:
+            //  V   = WTrot Vw        (WTrot is tensor Wrot transposed)
+            //  Vw = Wrot  V
 
             // The cost method implements a rotation tensor termed Hrot definning the orientation of the hypothetical solution stress sytem (H stands for hypothetical)
             // Hrot is equivalent to Rrot or Wrot depending on the calling functions:
             //      Hrot = Rrot in the interactive search phase using integral curves
             //      Hrot = Wrot in the inverse method search phase using Montecarlo (for example)
 
-            // The rotation tensor MrotHTrot between systems Sm and Sh (S' or S'') is such that: Vm = MrotHTrot . Vh (Vh = V' or Vh = V''), 
+            // The rotation tensor MrotHTrot between systems Sm and Sh (Sr or Sw) is such that: Vm = MrotHTrot . Vh (Vh = Vr or Vh = Vw), 
             // where MrotHTrot = Mrot . HTrot (HTrot = Hrot transposed):
             const MrotHTrot = multiplyTensors({A: this.Mrot, B: transposeTensor(stress.Hrot)})
 
@@ -213,6 +271,7 @@ export class ConjugateFaults extends Data {
         }
     }
 
+    /*
     protected checkConjugatePlanes(): void {
 
         // const f = ConjugatedFaults.create({})
@@ -326,6 +385,7 @@ export class ConjugateFaults extends Data {
             throw new Error('conjugate faults '+ this.params1.noPlane + ' and ' + this.params2.noPlane + ' are not defined (strike, dip and dip direction')
         }
     }
+    */
  
     protected consistencyKinematicsPerpendicularPlanes(): void {
         // The angle between the 2 normals is approximately equal to PI/2:

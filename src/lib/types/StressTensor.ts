@@ -39,7 +39,7 @@ export class StressTensor {
 
         // Perfom the computations...
         this.masterSlave()
-        this.rotationTensors(
+        this.rotationTensor_Rrot(
             new SphericalCoords({phi: this.phiS1, theta: this.thetaS1}),
             new SphericalCoords({phi: this.phiS3, theta: this.thetaS3})
         )
@@ -175,48 +175,52 @@ export class StressTensor {
         return thetaSlave
     }
 
-    private rotationTensors(sigma_1_sphere: SphericalCoords, sigma_3_sphere: SphericalCoords) {
-        // Calculate the rotation tensors between reference frames S and S', where
-        // S' = (X',Y',Z') is the principal stress reference frame, parallel to (sigma_1, sigma_3, sigma_2);
+    private rotationTensor_Rrot(sigma_1_sphere: SphericalCoords, sigma_3_sphere: SphericalCoords) {
+        // This method implements the rotation tensor Rrot between the geographic reference frame S 
+        //      and the interactive search reference frame  Sr ('r' stands for 'rough' solution):
+
+        //  The interactive search should lead to a 'rough' estimate of the stress tensor solution (the letters 'r' and 'R' stand for 'rough')
+
+        // Calculate the rotation tensors between right handed reference frames S and Sr, where
+        // Sr = (Xr,Yr,Zr) is the principal stress reference frame, parallel to (sigma_1_Sr, sigma_3_Sr, sigma_2_Sr);
         // S =  (X, Y, Z ) is the geographic reference frame  oriented in (East, North, Up) directions.
         //
-        // Let Rrot be the rotation tensor R between reference systems S and S', such that:
-        //      V' = R V,  where V and V' are the same vector defined in reference frames S and S', respectively
+        // Let Rrot be the rotation tensor R between reference systems S and Sr, such that:
+        //      Vr = R V,  where V and Vr are the same vector defined in reference frames S and Sr, respectively
 
-        // The lines of matrix R are given by the unit vectors parallel to X1', X2', and X3' defined in reference system S:
-        // Sigma_1 axis: Unit vector e1'. The scalar product: e1'.V = V'(1)
+        // The lines of matrix R are given by the unit vectors (nSigma_1_Sr,nSigma_3_Sr,nSigma_2_Sr) parallel to (Xr,Yr,Zr) defined in reference system S:
         const Rrot: Matrix3x3 = newMatrix3x3()
 
+        // 1st line of matrix Rrot (Sigma_1_Sr axis): Unit vector nSigma_1_Sr. The scalar product: nSigma_1_Sr.V = Vr(1)
         Rrot[0][0] = Math.sin(sigma_1_sphere.theta) * Math.cos(sigma_1_sphere.phi)
         Rrot[0][1] = Math.sin(sigma_1_sphere.theta) * Math.sin(sigma_1_sphere.phi)
         Rrot[0][2] = Math.cos(sigma_1_sphere.theta)
 
-        // Sigma_3 axis: Unit vector e2'. The scalar product: e2'.V = V'(2)
-        Rrot[0][0] = Math.sin(sigma_3_sphere.theta) * Math.cos(sigma_3_sphere.phi)
-        Rrot[0][1] = Math.sin(sigma_3_sphere.theta) * Math.sin(sigma_3_sphere.phi)
-        Rrot[0][2] = Math.cos(sigma_3_sphere.theta)
+        // 2nd line of matrix Rrot (Sigma_3_Sr axis): Unit vector nSigma_3_Sr. The scalar product: nSigma_3_Sr.V = Vr(2)
+        Rrot[1][0] = Math.sin(sigma_3_sphere.theta) * Math.cos(sigma_3_sphere.phi)
+        Rrot[1][1] = Math.sin(sigma_3_sphere.theta) * Math.sin(sigma_3_sphere.phi)
+        Rrot[1][2] = Math.cos(sigma_3_sphere.theta)
 
-        // Sigma_2 axis: Unit vector e3'. The scalar product: e3'.V = V'(3)
-        // e3' is calculated from the cross product e3' = e1' x e2' :
-
+        // 3rd line of matrix Rrot (Sigma_2_Sr axis): Unit vector nSigma_2_Sr. The scalar product: nSigma_2_Sr.V = Vr(3)
+        // nSigma_2_Sr is calculated from the cross product e3_Sr = e1_Sr x e2_Sr :
         Rrot[2][0] = Rrot[0][1] * Rrot[1][2] - Rrot[0][2] * Rrot[1][1]
         Rrot[2][1] = Rrot[0][2] * Rrot[1][0] - Rrot[0][0] * Rrot[1][2]
         Rrot[2][2] = Rrot[0][0] * Rrot[1][1] - Rrot[0][1] * Rrot[1][0]
 
-        // Let RTrot be the rotation tensor R between reference systems S' and S, such that:
-        //      V = RTrot V',  where V and V' are the same vector defined in reference frames S and S', respectively
+        // Let RTrot be the rotation tensor R between reference systems Sr and S, such that:
+        //      V = RTrot Vr,  where V and Vr are the same vector defined in reference frames S and Sr, respectively
         this.Rrot_ = Rrot
 
-        this.stressTensorS()
+        this.stressTensor_Sr_S()
     }
 
-    private stressTensorS() {
-        // Calculate the stress tensor ST in reference frame S from the stress tensor in reference frame S':
+    private stressTensor_Sr_S() {
+        // Calculate the stress tensor STP in reference frame S from the stress tensor in reference frame Sr:
         //      ST = RTrot STP Rrot
         //
         // where
         //
-        //      S' = (X',Y',Z') is the principal stress reference frame, parallel to (sigma_1, sigma_3, sigma_2);
+        //      Sr = (Xr,Yr,Zr) is the principal stress reference frame, parallel to (sigma_1, sigma_3, sigma_2) ('r' stands for 'rough' solution);
         //      S =  (X, Y, Z ) is the geographic reference frame  oriented in (East, North, Up) directions.
         //      STP = Stress tensor in the principal stress reference frame.
 
@@ -233,7 +237,7 @@ export class StressTensor {
     private thetaS3 = 0
 
     /**
-     * The new stress tensor is defined in a new reference sytem S' = (X',Y',Z') = (sigma 1, sigma 3, sigma 2)
+     * The new stress tensor is defined in a new reference sytem Sr = (Xr,Yr,Zr) = (sigma 1, sigma 3, sigma 2) ('r' stands for 'rough' solution)
      * Sigma 1 and sigma 3 axes can be defined interactively in the sphere (prefered solution) or chosen in a predefined range.
      * 
      * The stress axis Sigma_1 is defined by two angles in PoleCoords: trend and plunge.

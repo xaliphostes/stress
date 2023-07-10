@@ -157,7 +157,7 @@ function fibonacciLatticeCone(
 
             if ( stressRatio_plane >= 0 && stressRatio_plane <= 1 ) {   // The strees ratio is in interval [0,1]
 
-                // Calculate the stress tensor STdelta in reference frame S from the stress tensor in reference frame S''
+                // Calculate the stress tensor STdelta in reference frame S from the stress tensor in reference frame Sw
                 let STdelta = stressTensorDelta(stressRatio, Wrot, WTrot)
 
 

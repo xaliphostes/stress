@@ -99,7 +99,7 @@ export function normalizeVector(vector: Vector3, norm?: number): Vector3 {
  * @category Math
  */
 export function stressTensorPrincipalAxes(sigma: [number, number, number]): Matrix3x3 {
-    // Calculate the stress tensor ST in the principal stress frame 
+    // Calculate the stress tensor STP in the principal stress frame 
     const STP: Matrix3x3 = newMatrix3x3()
     // Stress tensor in the principal stress axis is diagonal
     for (let i = 0; i < 3; i++) {
@@ -480,24 +480,25 @@ export function rotationTensor_Sa_Sb( { Xb, Yb, Zb } : { Xb: Vector3, Yb: Vector
     //  Sa = (Xa,Ya,Za) is a right-handed reference system defined by 3 unit vectors (Xa,Ya,Za)
     //  Sb = (Xb,Yb,Zb) is a right-handed reference system defined by 3 unit vectors (Xb,Yb,Zb)
     //  We supposse that the coordinates of unit vectors (Xb,Yb,Zb) are defined in reference system Sa    
-    //  Under that suppsition, the lines of rotTensor are given by the unit vectors (Xb,Yb,Zb)
+    //  Under this hypothesis, the lines of rotTensor are given by the unit vectors (Xb,Yb,Zb)
+    //  In other words the coordinates of Vb are obtained from the scalar product of unit vectors (Xb,Yb,Zb) . Va
 
     let rotTensor: Matrix3x3 = newMatrix3x3()
 
     // First line is defined by unit vector Xb
-    // Note that the scalar product Xb . Va = Vb(x) i.e., The coordinate of vector Vb in Xb direction 
+    // Note that the scalar product Xb . Va = Vb(X) i.e., The coordinate of vector Vb in Xb direction 
     rotTensor[0][0] = Xb[0]
     rotTensor[0][1] = Xb[1]
     rotTensor[0][2] = Xb[2]
 
     // Second line is defined by unit vector Yb
-    // Note that the scalar product Yb . Va = Vb(y) i.e., The coordinate of vector Vb in Yb direction 
+    // Note that the scalar product Yb . Va = Vb(Y) i.e., The coordinate of vector Vb in Yb direction 
     rotTensor[1][0] = Yb[0]
     rotTensor[1][1] = Yb[1]
     rotTensor[1][2] = Yb[2]
 
     // Third line is defined by unit vector Zb
-    // Note that the scalar product Zb . Va = Vb(z) i.e., The coordinate of vector Vb in Zb direction 
+    // Note that the scalar product Zb . Va = Vb(Z) i.e., The coordinate of vector Vb in Zb direction 
     rotTensor[2][0] = Zb[0]
     rotTensor[2][1] = Zb[1]
     rotTensor[2][2] = Zb[2]

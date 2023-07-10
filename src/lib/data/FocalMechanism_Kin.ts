@@ -5,6 +5,7 @@ import {
     faultStressComponents, normalizeVector, unitVectorCartesian2Spherical
 }
 from "../types"
+import { isNumber } from "../utils"
 import { Data, DataParameters } from "./Data"
 import { StriatedPlaneProblemType } from "./StriatedPlane_Kin"
 import { FractureStrategy } from "./types"
@@ -13,12 +14,41 @@ import { FractureStrategy } from "./types"
 
 /** 
  Focal Mechanisms
+
+ The cost function calculates which of the two focal planes is more consistent with the stress tensor solution.
+ The misfit may be defined as the angular difference between mesaured and calculated striations, or as the
+ minimal angular difference between the stress tensor explainning the observed striation and the stress tensor solution.
+ Note that seismological data can be analized jointly with geological data to obtain one single stress tensor solution 
+ that explains both seismological and outcrop-scale tectonic data.
+
+ Focal mecanisms are specified in a separate file, different from the geological data file.
+
+    The seismological data set has the following columns :
+
+    0      Data mumber                                  Mandatory datum
+    1      Date (yyyy-mm-dd, e.g., 2019-09-22)
+    2      Time (hh:mm:ss, e.g., 17-39-43)
+    3      Latitude north in degrees (e.g., 45.98)
+    4      Longitude east in degrees (e.g., 12.75)
+    5      Depth in km (e.g., 5.8)
+    6      Seismic moment Mo (dyn.cm, e.g., 3.5E+22)
+    7      Strike of nodal plane No 1 [0, 360)          Mandatory datum
+    8      Dip of nodal plane No 1 [0, 90]              Mandatory datum
+    9      Rake of nodal plane No 1 [-180, 180]         Mandatory datum
+    10     Strike of nodal plane No 2 [0, 360)          Optional datum
+    11     Dip of nodal plane No 2 [0, 90]              Optional datum
+    12     Rake of nodal plane No 2 [-180, 180]         Optional datum
+    13     Fault type according to Zoback 1992 (5 categories: N, N_SS, SS, R_SS, R, and UNKNOWN for those not fitting in any of the five types)
+    14     Quality inversion parameter according to Sarao et al. 2021 (4 is the best solution)
+    15     Weight
+
     Each nodal plane is defined by a set of 3 parameters as follows:
-        Strike: clockwise angle measured from the North direction [0, 360)
+        Strike: Angle of the fault-trace direction measured clockwise from the North [0, 360), defined so that the fault dips to the right side of the trace,
+            i.e., the hanging-wall block is always to the right of the strike.
         Dip: inclination of the nodal plane relative to the horizontal [0, 90].
-            The dip direction is located to the left of the strike such that the cross product of unit vectors :
+            The dip direction is located to the right of the strike such that the cross product of unit vectors points upward :
             normal = dip X strike
-        Rake: Angle defining the slip vector indicating the movement of the top block relative to the bottom block
+        Rake: Angle defining the slip vector indicating the movement of the hnaging wall relative to the footwall.
             (i.e., the top block is located in the direction of the normal vector)
             The rake is measured in the anticlockwise direction from the strike [-180,180] 
 
@@ -41,23 +71,25 @@ export class FocalMechanismKin extends Data {
     protected nRake1: Vector3 = [0, 0, 0]
     protected nRake2: Vector3 = [0, 0, 0]
 
-    protected nodalPlane2 = false
+    protected nodalPlane2: boolean = false
 
-    protected strikeNodalPlane1 = 0
-    protected dipNodalPlane1 = 0
-    protected rakeNodalPlane1 = 0
+    protected strikeNodalPlane1:    number = undefined
+    protected dipNodalPlane1:       number = undefined
+    protected rakeNodalPlane1:      number = undefined
 
-    protected strikeNodalPlane2 = 0
-    protected dipNodalPlane2 = 0
-    protected rakeNodalPlane2 = 0
+    protected strikeNodalPlane2:    number = undefined
+    protected dipNodalPlane2:       number = undefined
+    protected rakeNodalPlane2:      number = undefined
 
     protected problemType = StriatedPlaneProblemType.DYNAMIC
     protected strategy: FractureStrategy = FractureStrategy.ANGLE
     protected position: Point3D = undefined
 
     initialize(params: DataParameters): boolean {
+
+        /*
         if (Number.isNaN(params.strikeNodalPlane)) {
-            throw new Error('Missing trend angle for nodal plane No.1')
+             throw new Error('Missing trend angle for nodal plane No.1')
         }
         if (Number.isNaN(params.dipNodalPlane1)) {
             throw new Error('Missing dip angle for  nodal plane No.1')
@@ -65,7 +97,29 @@ export class FocalMechanismKin extends Data {
         if (Number.isNaN(params.rakeNodalPlane1)) {
             throw new Error('Missing dip angle for  nodal plane No.1')
         }
+        */
+        // -----------------------------------
 
+        this.strikeNodalPlane1 = toFloat(toks[7])
+        if (!DataDescription.checkRanges(this.strikeNodalPlane1)) {
+            DataDescription.putMessage(toks, 7, this, result)
+        }
+
+        // -----------------------------------
+
+        this.dipNodalPlane1 = toFloat(toks[8])
+        if (!DataDescription.checkRanges(this.dipNodalPlane1)) {
+            DataDescription.putMessage(toks, 8, this, result)
+        }
+
+        // -----------------------------------
+
+        const this.rakeNodalPlane1 = toFloat(toks[9])
+        if (!DataDescription.checkRanges(this.rakeNodalPlane1)) {
+            DataDescription.putMessage(toks, 9, this, result)
+        }
+
+        // -----------------------------------
 
         const a1 = this.nodalPlaneAngles2unitVectors({
             strikeNodalPlane: this.strikeNodalPlane1,
@@ -76,10 +130,41 @@ export class FocalMechanismKin extends Data {
         this.SpheCoords_nNodalPlane1 = a1.SpheCoords_nNodalPlane
         this.nRake1 = a1.nRake
 
+        // -----------------------------------
+
+        if (isNumber(toks[10]) && isNumber(toks[11]) && isNumber(toks[12])) {
+            // Strike, dip and rake of the Nodal Plane No 2 trend are provided: toks 10, 11, 12
+
+            const strikeNodalPlane2 = toFloat(toks[10])
+            if (!DataDescription.checkRanges(strikeNodalPlane2)) {
+                DataDescription.putMessage(toks, 10, this, result)
+            }
+
+            // -----------------------------------
+
+            const dipNodalPlane2 = toFloat(toks[11])
+            if (!DataDescription.checkRanges(dipNodalPlane2)) {
+                DataDescription.putMessage(toks,11, this, result)
+            }
+    
+            // -----------------------------------
+    
+            const rakeNodalPlane2 = toFloat(toks[12])
+            if (!DataDescription.checkRanges(rakeNodalPlane2)) {
+                DataDescription.putMessage(toks, 12, this, result)
+            }
+
+            this.nodalPlane2 = true
+
+        } else if (isNumber(toks[10]) || isNumber(toks[11]) || isNumber(toks[12])) {
+
+            throw new Error( 'Strike, dip, and rake are not completely specified for nodal plane No 2 in focal mechanism No ' + toks[0])
+        }
+
         if (this.nodalPlane2) {
-            // The strike, dip and rake of nodal plane No 2 are optionnal. 
+            // The strike, dip and rake of nodal plane No 2 are optional. 
             // If they are specified in the focal mechanism data file (i.e. nodalPlane2 = true ) 
-            // then we calculate unit vectors for stress analysis
+            // then they are used to calculate unit vectors for stress analysis
             const a2 = this.nodalPlaneAngles2unitVectors({
                 strikeNodalPlane: this.strikeNodalPlane2,
                 dipNodalPlane: this.dipNodalPlane2,
@@ -181,7 +266,7 @@ export class FocalMechanismKin extends Data {
         //            in the geographic reference system: S = (X,Y,Z) = (E,N,Up)
 
         // phi : azimuthal angle in interval [0, 2 PI), measured anticlockwise from the X axis (East direction) in reference system S
-        // theta: colatitude or polar angle in interval [0, PI/2], measured downward from the zenith (upward direction)Data
+        // theta: colatitude or polar angle in interval [0, PI/2], measured downward from the zenith (upward direction)
 
         let SpheCoords_nNodalPlane: SphericalCoords
         let SpheCoordsStrike: SphericalCoords
@@ -195,11 +280,8 @@ export class FocalMechanismKin extends Data {
         SpheCoords_nNodalPlane.theta = deg2rad(dipNodalPlane)
 
         // The azimuthal angle of normal1 is calculated in radians from the trend of the nodal plane :
-        //      (strikeNodalPlane + PI/2) + phi = PI / 2 
-        // This relation gives  9 PI/4 < phi <= 0 
-        SpheCoords_nNodalPlane.phi = deg2rad(- strikeNodalPlane)
-        // Calculate phi >= 0 :
-        SpheCoords_nNodalPlane.phi = SpheCoords_nNodalPlane.phi + 2 * Math.PI
+        //      (strikeNodalPlane + PI/2) + phi = 5 PI / 2; thus: strikeNodalPlane + phi = 2 PI
+        SpheCoords_nNodalPlane.phi = 2 * Math.PI - deg2rad( strikeNodalPlane ) 
 
         // nNodalPlane is defined by angles (phi, theta) in spherical SpheCoords_nNodalPlane.
         nNodalPlane = spherical2unitVectorCartesian(SpheCoords_nNodalPlane)

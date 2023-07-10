@@ -1,13 +1,13 @@
 import { constant_x_Vector, newVector3D, normalizedCrossProduct, scalarProductUnitVectors, SphericalCoords, Vector3 } from "../types"
-import { Direction, Fault, SensOfMovement } from "./Fault"
+import { Direction, FaultHelper, SensOfMovement } from "./FaultHelper"
 
-export class CompactionShearBands {
+export class CompactionShearBandsHelper {
     static create(
         {strike, dipDirection, dip, sensOfMovement, rake, strikeDirection}:
         {strike: number, dipDirection: Direction, dip: number, sensOfMovement: SensOfMovement, rake: number, strikeDirection: Direction}):
-        {nPlane: Vector3, nStriation: Vector3, nPerpStriation: Vector3, fault: Fault}
+        {nPlane: Vector3, nStriation: Vector3, nPerpStriation: Vector3, fault: FaultHelper}
     {
-        const f = new Fault({strike, dipDirection, dip})
+        const f = new FaultHelper({strike, dipDirection, dip})
         f.setStriation({sensOfMovement, rake, strikeDirection})
         return {
             nPlane: f.normal,
@@ -140,8 +140,3 @@ export class CompactionShearBands {
     protected nStriation: Vector3 = undefined
     protected EPS = 1e-7
 }
-       
-
-
-
-

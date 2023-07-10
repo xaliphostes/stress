@@ -198,7 +198,7 @@ export class CompactionShearBands extends Data {
                         this.nSigma3_Sm = normalizeVector(this.nSigma3_Sm)
 
                         // nSigma1_Sm = nSigma3_Sm x nSigma2_Sm
-                        // The right-handed reference system is defined according to systems S' and S'' (sigma 1, sigma 3, sigma 2)
+                        // The right-handed reference system is defined according to systems Sr and Sw (sigma 1, sigma 3, sigma 2)
                         this.nSigma1_Sm = normalizedCrossProduct({ U: this.nSigma3_Sm, V: this.nSigma2_Sm })
 
                     } else {
@@ -210,7 +210,7 @@ export class CompactionShearBands extends Data {
                         this.nSigma1_Sm = normalizeVector(this.nSigma1_Sm)
 
                         // nSigma3_Sm = nSigma2_Sm x nSigma1_Sm
-                        // The right-handed reference system is defined according to systems S' and S'' (sigma 1, sigma 3, sigma 2)
+                        // The right-handed reference system is defined according to systems Sr and Sw (sigma 1, sigma 3, sigma 2)
                         this.nSigma3_Sm = normalizedCrossProduct({ U: this.nSigma2_Sm, V: this.nSigma1_Sm })
                     }
 
@@ -293,25 +293,25 @@ export class CompactionShearBands extends Data {
         if (this.problemType === StriatedPlaneProblemType.DYNAMIC) {
             // The cost function uses the rotation tensor Mrot from reference system S to Sm, calculated in method checkCompactionShearBands
 
-            // The cost function for two compaction-shear bands is defined as the minimum angular rotation between system Sm and the stress tensor in system S' or S'':
+            // The cost function for two compaction-shear bands is defined as the minimum angular rotation between system Sm and the stress tensor in system Sr or Sw:
             //  S   =  (X, Y, Z ) is the geographic reference frame  oriented in (East, North, Up) directions.
-            //  S'  =  (X', Y', Z' ) is the principal reference frame chosen by the user in the interactive search phase.
-            //  S'' =  (X'', Y'', Z'' ) is the principal reference frame for a fixed node in the search grid (sigma_1, sigma_3, sigma_2)
-            // Rotation tensors Rrot and RTrot between systems S and S' are such that:
+            //  Sr  =  (Xr, Yr, Zr ) is the principal reference frame chosen by the user in the interactive search phase.
+            //  Sw =  (Xw, Yw, Zw ) is the principal reference frame for a fixed node in the search grid (sigma_1, sigma_3, sigma_2)
+            // Rotation tensors Rrot and RTrot between systems S and Sr are such that:
 
-            //  V  = RTrot V'        (RTrot is tensor Rrot transposed)
-            //  V' = Rrot  V
+            //  V  = RTrot Vr        (RTrot is tensor Rrot transposed)
+            //  Vr = Rrot  V
 
-            // Rotation tensors Wrot and WTrot between systems S and S'' satisfy : WTrot = RTrot DTrot, such that:
-            //  V   = WTrot V''        (WTrot is tensor Wrot transposed)
-            //  V'' = Wrot  V
+            // Rotation tensors Wrot and WTrot between systems S and Sw satisfy : WTrot = RTrot DTrot, such that:
+            //  V   = WTrot Vw        (WTrot is tensor Wrot transposed)
+            //  Vw = Wrot  V
 
             // The cost method implements a rotation tensor termed Hrot definning the orientation of the hypothetical solution stress sytem (H stands for hypothetical)
             // Hrot is equivalent to Rrot or Wrot depending on the calling functions:            
             //      Hrot = Rrot in the interactive search phase using integral curves
             //      Hrot = Wrot in the inverse method search phase using Montecarlo (for example)
 
-            // The rotation tensor MrotHTrot between systems Sm and Sh (S' or S'') is such that: Vm = MrotHTrot . Vh (Vh = V' or Vh = V''), 
+            // The rotation tensor MrotHTrot between systems Sm and Sh (Sr or Sw) is such that: Vm = MrotHTrot . Vh (Vh = Vr or Vh = Vw), 
             // where MrotHTrot = Mrot . HTrot (HTrot = Hrot transposed):
             const MrotHTrot = multiplyTensors({ A: this.Mrot, B: transposeTensor(Hrot) })
             // const MrotHTrot = multiplyTensors({A: Mrot, B: WTrot})

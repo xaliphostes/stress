@@ -2,6 +2,9 @@ import { StyloliteInterface } from "./StyloliteInterface"
 import { SphericalCoords } from "../types/SphericalCoords"
 import { DataParameters } from "./DataParameters"
 import { trendPlunge2unitAxis } from "../types"
+import { DataDescription, DataMessages } from "./DataDescription"
+import { toFloat } from "../utils"
+import { DataArguments } from "./types"
 
 /**
  * Stylolite teeth are defined by a set of two parameters as follows:
@@ -20,9 +23,24 @@ import { trendPlunge2unitAxis } from "../types"
  */
 export class StyloliteTeeth extends StyloliteInterface {
     private coordinates: SphericalCoords = new SphericalCoords()
-    private stylolite_teeth_plunge = 0
-    private stylolite_teeth_trend = 0
+    private stylolite_teeth_plunge: number
+    private stylolite_teeth_trend: number
 
+    // description(): any {
+    //     return {
+    //         // Mandatory data:
+    //         // O, 1    = Data number, data type (Stylolite Teeth)
+    //         // ------------------------------
+    //         // Line orientation : 
+    //         // 9, 10 = line trend, line plunge
+    //         mandatory: [9, 10],
+    //         // Optional data:
+    //         // 11, 12 = Deformation phase, relative weight 
+    //         optional: [11, 12]
+    //     }
+    // }
+
+    /*
     initialize(params: DataParameters[]): boolean {
         if (Number.isNaN(params[0].stylolite_teeth_trend)) {
             throw new Error('Missing trend angle for Stylolite Teeth')
@@ -38,6 +56,33 @@ export class StyloliteTeeth extends StyloliteInterface {
         // The misfit is a normalized function of the angle between the 'normal' and the hypothetical stress axis Sigma 1 
         this.normal = trendPlunge2unitAxis({ trend: this.stylolite_teeth_trend, plunge: this.stylolite_teeth_plunge })
         return true
+    }
+    */
+    
+    initialize(args: DataArguments): DataMessages {
+        const toks = args[0]
+        const result = { status: true, messages: [] }
+        
+        // -----------------------------------
+
+        const stylolite_teeth_trend = toFloat(toks[9])
+        if (!DataDescription.checkRanges(stylolite_teeth_trend)) {
+            DataDescription.putMessage(toks, 9, this, result)
+        }
+
+        // -----------------------------------
+
+        const stylolite_teeth_plunge = toFloat(toks[10])
+        if (!DataDescription.checkRanges(stylolite_teeth_plunge)) {
+            DataDescription.putMessage(toks, 10, this, result)
+        }
+
+        // The unit vector 'normal' is parallel to the stylolite teeth:
+        //      'normal' can be considered to be equivalent to the perpendicular vector to a stylolite interface
+        // The misfit is a normalized function of the angle between the 'normal' and the hypothetical stress axis Sigma 1 
+        this.normal = trendPlunge2unitAxis({ trend: this.stylolite_teeth_trend, plunge: this.stylolite_teeth_plunge })
+
+        return result
     }
 }
 

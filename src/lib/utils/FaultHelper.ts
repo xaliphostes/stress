@@ -24,7 +24,7 @@ export const enum SensOfMovement {
     UKN
 }
 
-const mvts = ['N', 'I', 'RL', 'LL', 'N_RL', 'N_LL', 'I_RL', 'I_LL', 'UKN']
+export const mvts = ['N', 'I', 'RL', 'LL', 'N_RL', 'N_LL', 'I_RL', 'I_LL', 'UKN']
 
 export function sensOfMovementExists(s: string): boolean {
     if (s.length === 0) {
@@ -63,7 +63,7 @@ export const enum Direction {
     ERROR
 }
 
-const dirs = ['E', 'W', 'N', 'S', 'NE', 'SE', 'SW', 'NW']
+export const dirs = ['E', 'W', 'N', 'S', 'NE', 'SE', 'SW', 'NW']
 
 export function directionExists(s: string): boolean {
     if (s.length === 0) {
@@ -105,13 +105,13 @@ export function faultParams({strike, dipDirection, dip}:{strike: number, dipDire
  * f.setStriation({rake: 20, strikeDirection: Direction.N, sensMouv: 'LL'})
  * ```
  */
-export class Fault {
+export class FaultHelper {
 
     static create(
         {strike, dipDirection, dip, sensOfMovement, rake, strikeDirection}:
         {strike: number, dipDirection: Direction, dip: number, sensOfMovement: SensOfMovement, rake?: number, strikeDirection?: Direction})
     {
-        const f = new Fault({strike, dipDirection, dip})
+        const f = new FaultHelper({strike, dipDirection, dip})
 
         if (strikeDirection !== undefined) {
             f.setStriation({sensOfMovement, rake, strikeDirection})
@@ -183,7 +183,7 @@ export class Fault {
      */
     setStriation(
         {sensOfMovement, rake, strikeDirection}:
-        {sensOfMovement: SensOfMovement, rake: number, strikeDirection: Direction}): Fault
+        {sensOfMovement: SensOfMovement, rake: number, strikeDirection: Direction}): FaultHelper
     {
         // check and set
         this.rake = rake
@@ -200,7 +200,7 @@ export class Fault {
      */
     setStriationShallowPlane(
         {sensOfMovement, striationTrend}:
-        {sensOfMovement: SensOfMovement, striationTrend: Direction}): Fault
+        {sensOfMovement: SensOfMovement, striationTrend: Direction}): FaultHelper
     {
         this.sensMouv = sensOfMovement
         this.striationTrend = striationTrend
@@ -942,7 +942,7 @@ export class Fault {
     }
 
     private createUpLiftedBlock() {
-        const f = new Fault({strike: 0, dipDirection: Direction.E, dip: 90}) // TODO: params in ctor
+        const f = new FaultHelper({strike: 0, dipDirection: Direction.E, dip: 90}) // TODO: params in ctor
         f.setStriation({strikeDirection: Direction.N, rake: 90, sensOfMovement: SensOfMovement.UKN})
         /**
         * There is one particular case in which the sens of mouvement has to be defined with a different parameter:
@@ -955,13 +955,14 @@ export class Fault {
     }
 
     private faultSphericalCoordsSP() {
-        // Calculate the spherical coordinates of the unit vector normal to the plane in reference system S'
+        // Calculate the spherical coordinates of the unit vector normal to the plane in reference system Sr
 
-        // normalSp: unit vector normal to the fault plane (pointing upward) defined in the stress tensor reference system: S' = (X',Y',Z')=(sigma 1,sigma 3,sigma 2)
-        //          values should be recalculated for new stress tensors    
+        // normalSp: unit vector normal to the fault plane (pointing upward) defined in the stress tensor reference system: 
+        //          Sr = (Xr,Yr,Zr)=(sigma 1,sigma 3,sigma 2)
+        // values should be recalculated for new stress tensors    
         
-        // Let Rrot be the rotation tensor R between reference systems S and S', such that:
-        //      V' = R V,  where V and V' are the same vector defined in reference frames S and S', respectively
+        // Let Rrot be the rotation tensor R between reference systems S and Sr, such that:
+        //      Vr = R V,  where V and Vr are the same vector defined in reference frames S and Sr, respectively
 
         this.normalSp = tensor_x_Vector({T: this.RTrot, V: this.normal})
 
@@ -997,7 +998,7 @@ export class Fault {
     private faultNormalVectorSp(): void {
     /**
      *  (phiSp,thetaSp) : spherical coordinate angles defining the unit vector perpendicular to the fault plane (pointing upward in system S)
-     *               in the stress tensor reference system: S' = (X,Y,Z)
+     *               in the stress tensor reference system: Sr = (X,Y,Z) ('r' stands for 'rough' solution)
      *  These angles are recalculated from the new stress tensors
      */
 
@@ -1040,7 +1041,7 @@ export class Fault {
 
     // We define 2 orthonormal right-handed reference systems:
     //      S =  (X, Y, Z ) is the geographic reference frame oriented in (East, North, Up) directions.
-    //      S' = (X',Y',Z') is the principal stress reference frame, parallel to (sigma_1, sigma_3, sigma_2);
+    //      Sr = (Xr,Yr,Zr) is the principal stress reference frame, parallel to (sigma_1, sigma_3, sigma_2) ('r' stands for 'rough' solution);
 
     // (phi,theta) : spherical coordinate angles defining the unit vector perpendicular to the fault plane (pointing upward)
     //                 in reference system S
@@ -1057,10 +1058,10 @@ export class Fault {
     private e_phi:      Vector3 = newVector3D()
     private e_theta:    Vector3 = newVector3D()
        
-    // normalSp: unit vector normal to the fault plane (pointing upward) defined in the stress tensor reference system: S' = (X',Y',Z')=(s1,s3,s2)
+    // normalSp: unit vector normal to the fault plane (pointing upward) defined in the stress tensor reference system: Sr = (Xr,Yr,Zr)=(s1,s3,s2)
     private normalSp :  Vector3  = newVector3D()       // values should be recalculated for new stress tensors
     // (phiSp,thetaSp) : spherical coordinate angles defining the unit vector perpendicular to the fault plane (pointing upward in system S)
-    //                 in the stress tensor reference system: S' = (X,Y,Z)
+    //                 in the stress tensor reference system: Sr = (Xr,Yr,Zr)
     // private phiSp:    number      // constant values for each fault plane
     // private thetaSp:  number      // values are recalculated for new stress tensors
     private coordinatesSp: SphericalCoords = new SphericalCoords()
@@ -1070,7 +1071,7 @@ export class Fault {
     // striation: unit vector pointing toward the measured striation in the geographic reference system: S = (X,Y,Z)
     // private striation:      Vector3 = newVector3D()      // constant value for each fault plane
 
-    // striationSp: unit vector pointing toward the measured striation in the stress tensor reference system: S' = (X',Y',Z')
+    // striationSp: unit vector pointing toward the measured striation in the stress tensor reference system: Sr = (Xr,Yr,Zr)
     private striationSp:    Vector3 = newVector3D()     // values are recalculated for new stress tensors
     // stress: stress vector in the geographic reference system: S = (X,Y,Z)
     private stress:         Vector3 = newVector3D()     // values are recalculated for new stress tensors
@@ -1104,7 +1105,7 @@ export class Fault {
 
 // Step 1:
 
-//      n' = R n,  where n and n' are vectors in reference frames S and S'
+//      nr = R n,  where n and nr are vectors in reference frames S and Sr
 
 /*
 this.normalSp[0] = R[0,0] * this.normal[0] + R[0,1] * this.normal[1] + R[0,2] * this.normal[2] 
@@ -1117,8 +1118,8 @@ const sigma_1 = - this.lambda[0]    // Principal stress in X direction
 const sigma_2 = - this.lambda[2]    // Principal stress in Z direction
 const sigma_3 = - this.lambda[1]    // Principal stress in Y direction
 
-// Calculate the normal and shear stress components of the fault plane using coordinates in reference system S':
-// S' = (X',Y',Z') is the principal stress reference frame, parallel to (sigma_1, sigma_3, sigma_2);
+// Calculate the normal and shear stress components of the fault plane using coordinates in reference system Sr:
+// Sr = (Xr,Yr,Zr) is the principal stress reference frame, parallel to (sigma_1, sigma_3, sigma_2) ('r' stands for 'rough' solution);
 // The stress magnitude is obtained from the sum of the squared components 
 let this.Stress = Math.sqrt( sigma_1**2 * np[0]**2 + sigma_3**2 * np[1]**2 + sigma_2**2 * np[2]**2 )
 // The signed normal stress is obtatined form the scalar product of the normal and stress vectors 

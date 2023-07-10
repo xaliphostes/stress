@@ -40,7 +40,7 @@ inv.setSearchMethod(search)
 const sol = inv.run()
 const m = sol.stressTensorSolution
 
-// Calculate the stress tensor STdelta in reference frame S from the stress tensor in reference frame S''
+// Calculate the stress tensor STdelta in reference frame S from the stress tensor in reference frame Sw
 // const wrot = sol.rotationMatrixW
 // const wtrot  = transposeTensor( wrot )
 // let STdelta = stressTensorDelta(stressRatio, Wrot, WTrot)

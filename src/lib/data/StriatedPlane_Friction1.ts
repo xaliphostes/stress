@@ -38,7 +38,7 @@ export class StriatedPlaneFriction1 extends StriatedPlaneKin {
         this.weightFriction_ = w
     }
 
-    initialize(params: DataParameters[]): boolean {
+    initialize2(params: DataParameters[]): boolean {
         if (super.initialize(params) === false) {
             return false
         }

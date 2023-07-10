@@ -5,6 +5,8 @@ import { StriatedPlaneFriction1 } from './StriatedPlane_Friction1'
 import { StriatedPlaneFriction2 } from './StriatedPlane_Friction2'
 import { ConjugateCompactionalShearBands } from './ConjugateCompactionalShearBands'
 import { ConjugateFaults } from './ConjugateFaults'
+import { ConjugateDilatantShearBands } from './ConjugateDilatantShearBands'
+import { StriatedDilatantShearBand } from './StriatedDilatantShearBand'
 
 /* eslint @typescript-eslint/no-explicit-any: off -- need to have any here for the factory */
 export namespace DataFactory {
@@ -41,5 +43,10 @@ DataFactory.bind(ExtensionFracture, 'Extension Fracture')
 DataFactory.bind(StriatedPlaneKin, 'Striated Plane')
 DataFactory.bind(StriatedPlaneFriction1, 'Striated Plane Friction1')
 DataFactory.bind(StriatedPlaneFriction2, 'Striated Plane Friction2')
-DataFactory.bind(ConjugateCompactionalShearBands, 'Compaction Shear Bands')
-DataFactory.bind(ConjugateFaults, 'Conjugate Faults')
+DataFactory.bind(ConjugateCompactionalShearBands, 'Conjugate Compactional Shear Bands 1')
+DataFactory.bind(ConjugateCompactionalShearBands, 'Conjugate Compactional Shear Bands 2')
+DataFactory.bind(ConjugateDilatantShearBands, 'Conjugate Dilatant Shear Bands 1')
+DataFactory.bind(ConjugateDilatantShearBands, 'Conjugate Dilatant Shear Bands 2')
+DataFactory.bind(ConjugateFaults, 'Conjugate Faults 1')
+DataFactory.bind(ConjugateFaults, 'Conjugate Faults 2')
+DataFactory.bind(StriatedDilatantShearBand, 'Striated Dilatant Shear Band')

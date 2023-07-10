@@ -5,6 +5,10 @@ import { Point3D, Vector3 } from "../types"
  */
 export enum FractureStrategy {
     ANGLE,
+    // Criteriun similar or equivalent to the one implemented in the Gephart & Forsyth method (1984)
+    MIN_TENSOR_ROT,
+    // Criteriun similar to the one implemented in the Etchecopar et al. method (1981)
+    MIN_STRIATION_ANGULAR_DIF,
     DOT
 }
 
@@ -27,3 +31,9 @@ export enum StriatedPlaneProblemType {
     DYNAMIC,
     KINEMATIC
 }
+
+export type Line = string
+
+export type Tokens = string[]
+
+export type DataArguments = Tokens[]

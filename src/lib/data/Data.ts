@@ -1,6 +1,7 @@
 import { TensorParameters } from "../geomeca/TensorParameters"
 import { Matrix3x3, Point3D, Vector3 } from "../types/math"
-import { DataParameters } from "./DataParameters"
+import { DataMessages } from "./DataDescription"
+import { DataArguments } from "./types"
 
 /**
  * @brief A Data represents one and only one measure
@@ -28,9 +29,10 @@ export abstract class Data  {
         return this.active_
     }
 
-    description(): any {
-        return undefined
-    }
+    // description(): any {
+    //     // return undefined
+    //     throw new Error('Method does not exist anymore')
+    // }
     
     setOptions(options: { [key: string]: any }): boolean {
         return false
@@ -43,7 +45,8 @@ export abstract class Data  {
     /**
      * Replace the constructor
      */
-    abstract initialize(params: DataParameters[]): boolean
+    //abstract initialize(params: DataParameters[]): boolean
+    abstract initialize(args: DataArguments): DataMessages
 
     /**
      * @brief Check the consistency of the datum

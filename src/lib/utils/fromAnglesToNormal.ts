@@ -1,5 +1,5 @@
 import { deg2rad, spherical2unitVectorCartesian, SphericalCoords } from "../types"
-import { Direction, Fault } from "./Fault"
+import { Direction } from "./FaultHelper"
 
 export function fromAnglesToNormal({strike, dip, dipDirection}:{strike: number, dip: number, dipDirection: Direction}) {
     // Each fault is defined by a set of parameters as follows:

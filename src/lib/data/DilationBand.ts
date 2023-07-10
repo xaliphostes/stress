@@ -21,13 +21,7 @@ export class DilationBand extends ExtensionFracture {
     protected normal: Vector3 = [0,0,0]
     protected strategy: FractureStrategy = FractureStrategy.ANGLE
 
-    description(): any {
-        return {
-            mandatory: [2, 3, 4],
-            optional: [11, 12]
-        }
-    }
-
+    /*
     initialize(params: DataParameters[]): boolean {
         if (Number.isNaN(params[0].strike)) {
             throw new Error('Missing azimuth angle for dilation band')
@@ -50,8 +44,11 @@ export class DilationBand extends ExtensionFracture {
         
         return true
     }
+    */
    
+    /*
     check({displ, strain, stress}:{displ: Vector3, strain: Matrix3x3, stress: Matrix3x3}): boolean {
         return stress !== undefined
     }
+    */
 }

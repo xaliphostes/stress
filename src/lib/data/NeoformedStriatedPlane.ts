@@ -1,21 +1,19 @@
-import { Matrix3x3, normalizeVector, scalarProductUnitVectors, 
-        Vector3, add_Vectors, constant_x_Vector,
-        properRotationTensor, rotationTensor_Sa_Sb, normalizedCrossProduct, crossProduct, vectorMagnitude, scalarProduct, tensor_x_Vector, multiplyTensors, transposeTensor, minRotAngleRotationTensor, newMatrix3x3 } from "../types"
+import {
+    Matrix3x3, normalizeVector, scalarProductUnitVectors,
+    Vector3, add_Vectors, constant_x_Vector,
+    properRotationTensor, rotationTensor_Sa_Sb, normalizedCrossProduct,
+    crossProduct, vectorMagnitude, scalarProduct, tensor_x_Vector,
+    multiplyTensors, transposeTensor, minRotAngleRotationTensor, newMatrix3x3, deg2rad
+} from "../types"
 import { Data } from "./Data"
-import { Direction, Fault, SensOfMovement, directionExists, getDirectionFromString, getSensOfMovementFromString, sensOfMovementExists } from "../utils/Fault"
-import { FractureStrategy } from "./types"
+import { Direction, FaultHelper, SensOfMovement, directionExists, getDirectionFromString, getSensOfMovementFromString, sensOfMovementExists } from "../utils/FaultHelper"
+import { DataArguments, FractureStrategy, StriatedPlaneProblemType } from "./types"
 import { DataParameters } from "./DataParameters"
 import { TensorParameters } from "../geomeca"
+import { DataArgument, DataDescription, DataMessages } from "./DataDescription"
+import { isDefined, isNumber, toFloat, toInt } from "../utils"
+import { DataFactory } from "./Factory"
 
-/**
- * - DYNAMIC is related to forces (or stresses)
- * - KINEMATIC is related to displacement field
- * @category Data
- */
-export enum StriatedPlaneProblemType {
-    DYNAMIC,
-    KINEMATIC
-}
 
 /**
  * Neoformed striated plane: 
@@ -32,7 +30,7 @@ Neoformed striated planes are defined in the input file as a striated plane.
         Its direction is inside the compressional quadrant and may be constrained by optional parameters (friction,  <Sigma 1,n>)
     c) The intermediate axis Sigma 2 is located in the fault plane and is perpendicular to the striation.
 
-    Let Snsp be the principal reference system for the stress tensor (Sigma 1, Sigma 3, Sigma 2)nsp obtained from the neoformed striated plane
+    Let Sm be the principal reference system for the stress tensor (Sigma 1, Sigma 3, Sigma 2)m obtained from the neoformed striated plane
         i.e., the three stress axes satisfy the previous hypotheses.
  
  Several data sets defining neoformed striated planes are considered:
@@ -40,11 +38,11 @@ Neoformed striated planes are defined in the input file as a striated plane.
         In such case, the location of the striated plane in the Mohr Circle is not constrained and includes all the left quadrant of the Circle.
         In other words, angle <Sigma 1,n> is in interval [PI/4,PI/2)
 
- 2) Case 2: The friction angle phi is defined in interval [0, P1/2)
+ 2) Case 2: The minimum and/or maximum friction angle phi are defined in interval [0, P1/2)
         The angle <Sigma 1,n> can de readily calculated from the friction angle using relation:
             <Sigma 1,n> = PI/4 + phi/2
 
- 3) Case 3: The  <Sigma 1,n> angular interval is defined
+ 3) Case 3: The minimum and/or maximum <Sigma 1,n> angular interval are defined
  
  The geometry and kinematics of the Neoformed striated plane are defined:
     a) Each plane is defined by a set of 3 parameters, as follows:
@@ -56,16 +54,18 @@ Neoformed striated planes are defined in the input file as a striated plane.
           Dip-slip component:
               N = Normal fault, 
               I = Inverse fault or thrust
-          Strike-slip componenet:
+          Strike-slip component:
               RL = Right-Lateral fault
               LL = Left-Lateral fault
-        Sense of mouvement: N, I, RL, LL, N-RL, N-LL, I-RL, I-LL 
+          Unknown (the most compatible type of movement is selected **): 
+            UKN
+        Sense of mouvement: N, I, RL, LL, N-RL, N-LL, I-RL, I-LL, UKN
 
  * @category Data
  */
 
 export class NeoformedStriatedPlane extends Data {
-    protected plane = true
+    protected plane: boolean = false
     protected nPlane: Vector3 = undefined
     protected nStriation: Vector3 = undefined
     protected pos: Vector3 = undefined
@@ -74,10 +74,47 @@ export class NeoformedStriatedPlane extends Data {
     protected oriented = true
     protected EPS = 1e-7
     protected nPerpStriation: Vector3
-    protected sigma1_Sm_Mean: Vector3
+    protected nSigma1_Sm_Mean: Vector3
     protected deltaTheta1_Sm = 0
     protected Mrot = [newMatrix3x3(), newMatrix3x3(), newMatrix3x3()]
     protected noPlane = 0
+
+    protected nSigma1_Sm: Vector3
+    protected nSigma2_Sm: Vector3
+    protected nSigma3_Sm: Vector3
+
+    protected angleMean_nSigma1_Sm_nPlane: number
+
+    // The friction angle of the neoformed striated plane is defined in interval < frictionAngleMin, frictionAngleMax > in Data file
+    protected frictionAngleInterval = false
+    protected frictionAngleMin = 0
+    protected frictionAngleMax = 90
+
+    // The angle < nSigma1,nPlane> is defined in interval < nSigma1_nPlane_AngleMin, nSigma1_nPlane_AngleMax > in Data file
+    protected nSigma1_nPlane_AngleInterval = false
+    protected nSigma1_nPlane_AngleMin = 45
+    protected nSigma1_nPlane_AngleMax = 90
+
+    /*
+    description(): any {
+        return {
+            // Mandatory data: 
+            // 0, 1    = Data number, data type (Neoformed Striated Plane)
+            // -----------------------------
+            // Plane orientation : 
+            // 2, 3, 4 = Strike, dip, dip direction
+            // Striation : 
+            // 5, 6 = Rake, strike direction
+            // 7    = Striation trend (optional **)
+            mandatory: [2, 3, 4],
+            // Optional data:
+            // 8      = Type of movement
+            // 11, 12 = Deformation phase, relative weight 
+            // 13, 14 = Minimum friction angle phi_min, minimum friction angle phi_max (one or both may de defined **)
+            // 15, 16 = Minimum angle <Sigma 1, nPlane>, maximum angle <Sigma 1, nPlane> (one or both may de defined **)
+            optional: [8, 11, 12, 15, 16]
+        }
+    }
 
     initialize(params: DataParameters[]): boolean {
         if (Number.isNaN(params[0].strike)) {
@@ -90,10 +127,91 @@ export class NeoformedStriatedPlane extends Data {
 
         if (params[0].dip < 90 && Number.isNaN(params[0].dipDirection)) {
             throw new Error('Missing dip direction for Neoformed Striated Plane' + params[0].noPlane)
+        } else if (params[0].dip === 90 && params[0].rake === 90 && Number.isNaN(params[0].dipDirection)) {
+            // Special case: 
+            // The dip direction for a vertical plane with vertical striation points toward the uplifted block
+            throw ('The dip direction for a vertical plane with vertical striation points toward the uplifted block')
+            throw new Error('Missing dip direction for Neoformed Striated Plane' + params[0].noPlane)
+        }
+
+        if ( !( Number.isNaN(params[0].frictionAngleMin) ) && !( Number.isNaN(params[0].frictionAngleMax) ) ) {
+            // The mimimum and maximum friction angles are defined
+            this.frictionAngleInterval = true
+        }
+        else if ( Number.isNaN(params[0].frictionAngleMin) && Number.isNaN(params[0].frictionAngleMax) ) {
+            // The mimimum and maximum friction angles are NOT defined
+            this.frictionAngleInterval = false
+        }
+        else {
+            // Only ONE friction angle is defined (mimimum OR maximum)
+            this.frictionAngleInterval = true
+
+            if ( Number.isNaN(params[0].frictionAngleMin) ) {
+                // The maximum friction angle is defined whereas the mimimum friction angle is NOT defined
+                // The mimimum friction angle is fixed to zero
+                this.frictionAngleMin = 0
+            }
+            else {
+                // The minimum friction angle is defined whereas the maximum friction angle is NOT defined
+                // The maximum friction angle is fixed to 90°
+                this.frictionAngleMin = 90
+            }
+        }
+
+        if ( this.frictionAngleInterval ) {
+            if ( this.frictionAngleMin < 45 || this.frictionAngleMin > 90 ) {
+                throw new Error('Minimum <nSigma1,nPlane> angle for plane ' + params[0].noPlane + ' should be in interval [45,90]')
+            }
+            else if ( this.frictionAngleMax < 45 || this.frictionAngleMax > 90 ) {
+                throw new Error('Maximum friction angle for plane ' + params[0].noPlane + ' should be in interval [0,90]')
+            }
+            else if ( this.frictionAngleMin > this.frictionAngleMax ) {
+                throw new Error('Minimum friction should be less than maximum friction anglefor plane ' + params[0].noPlane )
+            }
+        }
+
+        if ( !( Number.isNaN(params[0].nSigma1_nPlane_AngleMin) ) && !( Number.isNaN(params[0].nSigma1_nPlane_AngleMax) ) ) {
+            // The mimimum and maximum < nSigma1,nPlane> angles are defined
+            this.nSigma1_nPlane_AngleInterval = true
+        }
+        else if ( Number.isNaN(params[0].nSigma1_nPlane_AngleMin) && Number.isNaN(params[0].nSigma1_nPlane_AngleMax) ) {
+            // The mimimum and maximum friction angles are NOT defined
+            this.nSigma1_nPlane_AngleInterval = false
+        }
+        else {
+            // Only ONE <nSigma1,nPlane> angle is defined (mimimum OR maximum)
+            this.nSigma1_nPlane_AngleInterval = true
+
+            if ( Number.isNaN(params[0].nSigma1_nPlane_AngleMin) ) {
+                // The maximum <nSigma1,nPlane> angle is defined whereas the mimimum <nSigma1,nPlane> angle is NOT defined
+                // The mimimum <nSigma1,nPlane> angle is fixed to 45 (PI/4)
+                this.nSigma1_nPlane_AngleMin = 45
+            }
+            else {
+                // The minimum <nSigma1,nPlane> angle is defined whereas the maximum <nSigma1,nPlane> angle is NOT defined
+                // The maximum <nSigma1,nPlane> angle is fixed to 90° (PI/2)
+                this.nSigma1_nPlane_AngleMin = 90
+            }
+        }
+
+        if ( this.nSigma1_nPlane_AngleInterval ) {
+            if ( this.nSigma1_nPlane_AngleMin < 0 || this.nSigma1_nPlane_AngleMin > 90 ) {
+                throw new Error('Minimum <nSigma1,nPlane> angle for plane ' + params[0].noPlane + ' should be in interval [45,90]')
+            }
+            else if ( this.nSigma1_nPlane_AngleMax < 0 || this.nSigma1_nPlane_AngleMax > 90 ) {
+                throw new Error('Maximum <nSigma1,nPlane> angle for plane ' + params[0].noPlane + ' should be in interval 45,90]')
+            }
+            else if ( this.nSigma1_nPlane_AngleMin > this.nSigma1_nPlane_AngleMax ) {
+                throw new Error('Minimum <nSigma1,nPlane> should be less than maximum friction angle for plane ' + params[0].noPlane )
+            }
+        }
+
+        if ( this.nSigma1_nPlane_AngleInterval && this.frictionAngleInterval) {
+            throw new Error('Define either the friction angle interval or the <nSigma1,nPlane> interval for plane ' + params[0].noPlane + ' but not both')
         }
 
         // Check that nPlane and nStriation are unit vectors
-        const { nPlane, nStriation, nPerpStriation } = Fault.create({
+        const { nPlane, nStriation, nPerpStriation } = FaultHelper.create({
             strike: params[0].strike, 
             dipDirection: this.getMapDirection(params[0].dip_direction), 
             dip: params[0].dip, 
@@ -105,38 +223,201 @@ export class NeoformedStriatedPlane extends Data {
         this.nStriation = nStriation
         this.nPerpStriation = nPerpStriation
         this.noPlane = params[0].noPlane
+        this.frictionAngleMin = params[0].frictionAngleMin
+        this.frictionAngleMax = params[0].frictionAngleMax
+        this.nSigma1_nPlane_AngleMin = params[0].nSigma1_nPlane_AngleMin
+        this.nSigma1_nPlane_AngleMax = params[0].nSigma1_nPlane_AngleMax
 
         // Check orthogonality
         const sp = scalarProductUnitVectors({U: nPlane, V: nStriation})
-        if (Math.abs(sp) >this.EPS) {
-            throw new Error(`striation is not on the fault plane. Dot product gives ${sp}`)
+        if (Math.abs(sp) > this.EPS) {
+            throw new Error(`striation is not on the fault plane. Dot product with normal vector gives ${sp}`)
         }
+
+        // Calculate:
+        // nSigma1_Sm_Mean = unit vector Sigma 1 defined in reference system Sm, whose location in the Mohr Circle is centred around the valid angular interval.
+        // deltaTheta1_Sm = angle between nSigma1_Sm_Mean and the stress axis located at the boundaries of the Mohr circle angular interval.
+        this.nSigma1_Sm_Mean_deltaTheta1_Sm_MohrCircle()
+
+        // Calculate three rotation tensors from the geographic reference system to the micro/meso structure reference system (i.e., from S to Sm).
+        // Reference systems Sm are associated with three significant points in the Mohr-Circle angular interval linked to the micro/meso structure :
+        //      Points are located at the minimum, intermediate and maximum angle relative to Sigma_1_Sm
+        this.rotationTensors_S2Sm_Mrot()
+        //********** 
 
         return true
     }
+    */
 
-    protected getMapDirection(s: string): Direction {
-        if (!directionExists(s)) {
-            throw new Error(`Direction ${s} is not defined (or incorrectly defined)`)
+    initialize(args: DataArguments): DataMessages {
+        const toks = args[0]
+        const result = { status: true, messages: [] }
+
+        const arg: DataArgument = {
+            toks,
+            index: 0,
+            data: this,
+            result,
+            setIndex(i: number) {
+                this.index=i;
+                return this
+            }
         }
-        return getDirectionFromString(s)
-    }
-    
-    protected getSensOfMovement(s: string): SensOfMovement {
-        if (!sensOfMovementExists(s)) {
-            throw new Error(`Sens of movement ${s} is not defined (or incorrectly defined)`)
+
+        const strike = DataDescription.getParameter(arg.setIndex(2))
+
+        const dip = DataDescription.getParameter(arg.setIndex(3))
+
+        let dipDirection = Direction.UNKOWN
+        if ( (dip !== 90) && (dip !== 0) ) {
+            // In the general case, the dip direction for non-horizontal and non-vertical planes
+            // must be defined in terms of a geographic direction: N, S, E, W, NE, SE, SW, NW
+            dipDirection = DataDescription.getParameter(arg.setIndex(4))
         }
-        return getSensOfMovementFromString(s)
+
+
+        // The striae itself
+        let striationTrend: number = undefined
+        let rake: number = undefined
+        let strikeDirection = Direction.UNKOWN
+
+        if (isNumber(toks[7])) {
+            striationTrend = DataDescription.getParameter(arg.setIndex(7))
+        }
+        else {
+            // rake and strike direction are provided: 5 & 6
+            rake = DataDescription.getParameter(arg.setIndex(5))
+
+            if (rake !== 90 && rake !== 0) {
+                // if the rake < 90° and rake <> 0 the strikeDirection must be specified **
+                strikeDirection = DataDescription.getParameter(arg.setIndex(6))
+            }
+            else {
+                if (dip === 90) {
+                    // Special case: Vertical plane with vertical striation: dip = 90; rake = 90
+                    // In such case, the dipDirection indicates the direction of the uplifted block and it must be specified
+                        dipDirection = DataDescription.getParameter(arg.setIndex(4))
+                }
+            }
+        }
+
+        const sensOfMovement = DataDescription.getParameter(arg.setIndex(8))
+
+        if (isDefined(toks[13]) || isDefined(toks[14])) {
+            // One or both friction angles are defined
+            if (isDefined(toks[13])) {
+                    this.frictionAngleMin = DataDescription.getParameter(arg.setIndex(13))
+                    this.frictionAngleMin = deg2rad(this.frictionAngleMin)
+            } else {
+                // Minimum friction angle is not defined and is set to the minimum value
+                this.frictionAngleMin = 0
+            }
+
+            if (isDefined(toks[14])) {
+                this.frictionAngleMax = DataDescription.getParameter(arg.setIndex(14))
+                this.frictionAngleMax = deg2rad(this.frictionAngleMax)
+            } else {
+                // Maximum friction angle is not defined and is set to the maximum value
+                this.frictionAngleMax = Math.PI / 2
+            }
+
+            if (this.frictionAngleMax < this.frictionAngleMin) {
+                result.status = false
+                result.messages.push(`Data number ${toks[0]}, columns 13 and 14: parameter for ${DataFactory.name(this)}, ${DataDescription.names[13]} (got ${this.frictionAngleMin}) should be less than ${DataDescription.names[14]} (got ${this.frictionAngleMax})`)
+            }
+            this.frictionAngleInterval = true
+        }
+
+        if (!this.frictionAngleInterval) {
+            if (isDefined(toks[15]) || isDefined(toks[16])) {
+                // One or both <Sigma 1, nPlane> angles are defined
+                if (isDefined(toks[15])) {
+                    this.nSigma1_nPlane_AngleMin = DataDescription.getParameter(arg.setIndex(15))
+                } else {
+                    // The minimum <Sigma 1, nPlane> angle is set to 45° (PI/4) 
+                    this.nSigma1_nPlane_AngleMin = Math.PI / 4
+                }
+
+                if (isDefined(toks[16])) {
+                    this.nSigma1_nPlane_AngleMax = DataDescription.getParameter(arg.setIndex(16))
+                } else {
+                    // The maximum <Sigma 1, nPlane> angle is set to 90° (PI/2) 
+                    this.nSigma1_nPlane_AngleMax = Math.PI / 2
+                }
+
+                if (this.nSigma1_nPlane_AngleMax < this.nSigma1_nPlane_AngleMin) {
+                    result.status = false
+                    result.messages.push(`Data number ${toks[0]}, columns 15 and 16: parameter for ${DataFactory.name(this)}, ${DataDescription.names[15]} (got ${this.nSigma1_nPlane_AngleMin}) should be less than ${DataDescription.names[16]} (got ${this.nSigma1_nPlane_AngleMax})`)
+                }
+                this.nSigma1_nPlane_AngleInterval = true
+            }
+        }
+        else if (isDefined(toks[15]) || isDefined(toks[16])) {
+            result.status = false
+            result.messages.push(`Data number ${toks[0]}, columns 13 to 16: parameter for ${DataFactory.name(this)}, define either friction angles (cols 13 and 14) or <Sigma 1, nPlane> angles (cols 15 and 15), but not both`)
+        }
+
+        // -----------------------------------
+
+        // Check that nPlane and nStriation are unit vectors
+        const { nPlane, nStriation, nPerpStriation } = FaultHelper.create({
+            strike,
+            dipDirection,
+            dip,
+            sensOfMovement,
+            rake,
+            strikeDirection
+        })
+
+        this.nPlane = nPlane
+        this.nStriation = nStriation
+        this.nPerpStriation = nPerpStriation
+        this.noPlane = toInt(toks[0])
+
+        // Check orthogonality
+        const sp = scalarProductUnitVectors({ U: nPlane, V: nStriation })
+        if (Math.abs(sp) > this.EPS) {
+            throw new Error(`striation is not on the fault plane. Dot product with normal vector gives ${sp}`)
+        }
+
+        // The data definning the Neoformed Striated Plane are defined correctly
+        this.plane = true
+
+        // Calculate:
+        // nSigma1_Sm_Mean = unit vector Sigma 1 defined in reference system Sm, whose location in the Mohr Circle is centred around the valid angular interval.
+        // deltaTheta1_Sm = angle between nSigma1_Sm_Mean and the stress axis located at the boundaries of the Mohr circle angular interval.
+        this.nSigma1_Sm_Mean_deltaTheta1_Sm_MohrCircle()
+
+        // Calculate three rotation tensors from the geographic reference system to the micro/meso structure reference system (i.e., from S to Sm).
+        // Reference systems Sm are associated with three significant points in the Mohr-Circle angular interval linked to the micro/meso structure :
+        //      Points are located at the minimum, intermediate and maximum angle relative to Sigma_1_Sm
+        this.rotationTensors_S2Sm_Mrot()
+
+        return result
     }
 
-    check({displ, strain, stress}:{displ: Vector3, strain: Matrix3x3, stress: Matrix3x3}): boolean {
+    // protected getMapDirection(s: string): Direction {
+    //     if (!directionExists(s)) {
+    //         throw new Error(`Direction ${s} is not defined (or incorrectly defined)`)
+    //     }
+    //     return getDirectionFromString(s)
+    // }
+
+    // protected getSensOfMovement(s: string): SensOfMovement {
+    //     if (!sensOfMovementExists(s)) {
+    //         throw new Error(`Sens of movement ${s} is not defined (or incorrectly defined)`)
+    //     }
+    //     return getSensOfMovementFromString(s)
+    // }
+
+    check({ displ, strain, stress }: { displ: Vector3, strain: Matrix3x3, stress: Matrix3x3 }): boolean {
         if (this.problemType === StriatedPlaneProblemType.DYNAMIC) {
             return stress !== undefined
         }
         return displ !== undefined
     }
 
-    cost({displ, strain, stress}:{displ: Vector3, strain: TensorParameters, stress: TensorParameters}): number {
+    cost({ displ, strain, stress }: { displ: Vector3, strain: TensorParameters, stress: TensorParameters }): number {
         if (this.problemType === StriatedPlaneProblemType.DYNAMIC) {
             // We define 3 orthonormal right-handed reference systems:
             //      S =  (X, Y, Z ) is the geographic reference frame oriented in (East, North, Up) directions.
@@ -145,9 +426,9 @@ export class NeoformedStriatedPlane extends Data {
             //      Sh = (Xh,Yh,Zh) is the principal stress reference frame parallel to the stress axes, 
             //              defined from the hypothetical stress tensor solution, e.g., from grid search or Montecarlo (sigma1_Sh, sigma3_Sh, sigma2_Sh);
 
-            // Sh is defined by S' or S'' reference systems:
-            //      S'  =  (X', Y', Z' ) is the principal reference frame chosen by the user in the interactive search phase.
-            //      S'' =  (X'', Y'', Z'' ) is the principal reference frame for a fixed node in the search grid (sigma_1, sigma_3, sigma_2)
+            // Sh is defined by Sr or Sw reference systems:
+            //      Sr  =  (Xr, Yr, Zr ) is the principal reference frame chosen by the user in the interactive search phase ('r' stands for 'rough' solution).
+            //      Sw =  (Xw, Yw, Zw ) is the principal reference frame for a fixed node in the search grid (sigma_1, sigma_3, sigma_2) ('w' stands for 'winning' solution)
 
             // The cost method implements two rotation tensors termed Mrot[i] and Hrot, defined in terms of reference frames Sm and Sh:
 
@@ -156,67 +437,55 @@ export class NeoformedStriatedPlane extends Data {
             //      V  = MTrot[i] Vm       (MTrot is tensor Mrot transposed)
             // Mrot[i] is calculated only once, when initializing the neoformed striated plane **
 
+            // Hrot is is the transformation matrix between S and Sh ('H' sand 'h' stand for 'hypothetical' solution), such that:
+            //      Vh = Hrot[i]  V      where V and Vh are corresponding vectors in S and Sh
+            //      V  = HTrot[i] Vh     (HTrot is tensor Hrot transposed)
+
             // Hrot is is defined either by Rrot or by Wrot, depending on the calling functions:
             //      Hrot = Rrot in the interactive search phase using integral curves
             //      Hrot = Wrot in the inverse method search phase using Montecarlo (for example)
 
-            // Rotation tensors Rrot and RTrot between systems S and S' are such that:
-            //      V' = Rrot  V
-            //      V  = RTrot V'        (RTrot is tensor Rrot transposed)
+            // Rotation tensors Rrot and RTrot between systems S and Sr are such that:
+            //      Vr = Rrot  V
+            //      V  = RTrot Vr        (RTrot is tensor Rrot transposed)
 
-            // Rotation tensors Wrot and WTrot between systems S and S'' satisfy : WTrot = RTrot DTrot, such that:
-            //      V'' = Wrot  V
-            //      V   = WTrot V''        (WTrot is tensor Wrot transposed)
+            // Rotation tensors Wrot and WTrot between systems S and Sw satisfy : WTrot = RTrot DTrot, such that:
+            //      Vw = Wrot  V
+            //      V  = WTrot Vw        (WTrot is tensor Wrot transposed)
 
-            let Omega:  number
+            let Omega: number
             let nOmega: Vector3
 
             if (this.plane) {
+                // The neoformed striated plane is defined correctly (c.f. initialize method)
 
-                
-                //********* Calculate only once - when reading data type
-                // :
-                //      sigma1_Sm_Mean = unit vector Sigma 1 defined in reference system Sm, whose location in the Mohr Circle is centred around the valid angular interval.
-                //      deltaTheta1_Sm = angle between sigma1_Sm_Mean and the stress axis located at the boundaries of the Mohr circle angular interval.
-                this.meanSigma1DeltaThetaNeoformedStriatedPlane()
-
-                // Calculate three rotation tensors from the geographic reference system to the micro/meso structure reference system (i.e., from S to Sm).
-                // Reference systems Sm are associated with three significant points in the Mohr-Circle angular interval linked to the micro/meso structure :
-                //      Points are located at the minimum, intermediate and maximum angle relative to Sigma_1_Sm
-                this.rotationTensors_S2Sm_Mrot()
-                //********** 
-
-
-                // The neoformed striated plane is defined (strike, dip and dipDirection)
-
-                // Calculate the unit vector parellel to Sigma2_Sm, which is perpendicular to nPlane and nStriation:
-                const nSigma2_Sm = normalizedCrossProduct( {U: this.nPlane, V: this.nStriation} )
-                const nSigma1_Sh = stress.S1
-                const nSigma2_Sh = stress.S2
+                // nSigma1_Sh, nSigma2_Sh, nSigma3_Sh = Unit vectors parallel to principal stress axes in hypothetical reference system Sh
+                const nSigma1_Sh = stress.S1_Xh
+                const nSigma2_Sh = stress.S2_Zh
 
                 // nSigma2_Sh_X_nSigma2_Sm = rotation axis between the stress axes nSigma2_Sh and nSigma2_Sm defined by the cross product of two unit vectors
-                let nSigma2_Sh_X_nSigma2_Sm = crossProduct( {U: nSigma2_Sh, V: nSigma2_Sm} )
+                let nSigma2_Sh_X_nSigma2_Sm = crossProduct({ U: nSigma2_Sh, V: this.nSigma2_Sm })
                 // The magnitude of two unit vectors is sin(Omega), where Omega is the angle between the unit vectors 
-                let Mag_nSigma2_Sh_X_nSigma2_Sm = vectorMagnitude( nSigma2_Sh_X_nSigma2_Sm )    
+                let Mag_nSigma2_Sh_X_nSigma2_Sm = vectorMagnitude(nSigma2_Sh_X_nSigma2_Sm)
 
                 let nSigma1_Sh_Rot: Vector3 = undefined
-                if ( Mag_nSigma2_Sh_X_nSigma2_Sm > this.EPS ) {
+                if (Mag_nSigma2_Sh_X_nSigma2_Sm > this.EPS) {
                     // unit vectors nSigma2_Sh and nSigma2_Sm are not parallel (i.e., the stress axes are not aligned)
                     // nOmega = unitary rotation axis 
-                    nOmega = normalizeVector( nSigma2_Sh_X_nSigma2_Sm, Mag_nSigma2_Sh_X_nSigma2_Sm )
-                    
+                    nOmega = normalizeVector(nSigma2_Sh_X_nSigma2_Sm, Mag_nSigma2_Sh_X_nSigma2_Sm)
+
                     // Omega = Positive (anticlockwise) rotation angle between vectors nSigma2_Sh and nSigma2_Sm - in interval (0,PI)
                     // Note that acos(x) gives an angle in interval [0,PI]
-                    Omega = Math.acos( scalarProduct( {U: nSigma2_Sh, V: nSigma2_Sm} ) )
+                    Omega = Math.acos(scalarProduct({ U: nSigma2_Sh, V: this.nSigma2_Sm }))
 
                     let Prot: Matrix3x3 = undefined
-                    if ( Omega <= Math.PI / 2 ) {
+                    if (Omega <= Math.PI / 2) {
                         // Omega is the minimum rotation angle such that stress axis nSigma2_Sh is transformed into nSigma2_Sm:
 
                         // Calculate the proper rotation matrix Prot such that :
                         //      nSigma2_Sm = Prot nSigma2_Sh 
-                        Prot = properRotationTensor( {nRot: nOmega, angle: Omega} )
-                        
+                        Prot = properRotationTensor({ nRot: nOmega, angle: Omega })
+
                     } else {
                         // Omega is in interval (PI / 2, PI). In this situation:
                         //      The minimum rotation is given by the complementary angle : PI - Omega
@@ -226,27 +495,27 @@ export class NeoformedStriatedPlane extends Data {
 
                         // Calculate the proper rotation matrix PR such that :
                         //      Prot nSigma2_Sh = - nSigma2_Sm
-                        Prot = properRotationTensor( {nRot: constant_x_Vector({k: -1, V: nOmega}) , angle: Math.PI - Omega} )
+                        Prot = properRotationTensor({ nRot: constant_x_Vector({ k: -1, V: nOmega }), angle: Math.PI - Omega })
                     }
                     // nSigma1_Sh_Rot = image of hypothetical stress axis nSigma1_Sh obtained from proper rotation matrix
                     //          nSigma1_Sh_Rot is in the plane of mouvement ot the neoformed striated plane
-                    nSigma1_Sh_Rot = tensor_x_Vector( {T: Prot, V: nSigma1_Sh} )
+                    nSigma1_Sh_Rot = tensor_x_Vector({ T: Prot, V: nSigma1_Sh })
 
                 } else {
                     // unit vectors nSigma2_Sh and nSigma2_Sm are aligned; thus the rotation angle is zero
                     Omega = 0
                     nSigma1_Sh_Rot = nSigma1_Sh
                 }
- 
+
                 // Calculate if nSigma1_Sh_Rot is located in the valid Mohr-Circle angular interval
                 // sigma1_Sm_Mean = Mean orientation of unit vector nSigma1_Sm corresponding to a point centred in the valid Mohr-Circle angular interval.
-                //      This value is calculated in method meanSigma1DeltaThetaNeoformedStriatedPlane
+                //      This value is calculated in method nSigma1_Sm_Mean_deltaTheta1_Sm_MohrCircle
                 // sigma1_Sm_Mean . nSigma1_Sh_Rot = cos(alpha) where alpha = minimum angle between the two stress axes
                 //      Note that if the scalar product is negative (e.g. PI/2 < alpha <= PI ) then the minimum angle is given by PI - alpha
                 //      This situation is considered by taking the absolute value of the scalar product:
-                const angle_nsigma1_Sm_Mean_nSigma1_Sh_Rot = Math.acos( Math.abs( scalarProduct( {U: this.sigma1_Sm_Mean, V: nSigma1_Sh_Rot}) ))
+                const angle_nSigma1_Sm_Mean_nSigma1_Sh_Rot = Math.acos(Math.abs(scalarProduct({ U: this.nSigma1_Sm_Mean, V: nSigma1_Sh_Rot })))
 
-                if ( angle_nsigma1_Sm_Mean_nSigma1_Sh_Rot <= this.deltaTheta1_Sm ) {
+                if (angle_nSigma1_Sm_Mean_nSigma1_Sh_Rot <= this.deltaTheta1_Sm) {
                     // The stress axis nSigma1_Sh_Rot is located within the Mohr Circle angular interval
                     //      deltaTheta1_Sm = angle between sigma1_Sm_Mean and the stress axis located at the boundaries of the Mohr circle angular interval.
                     // Thus, the minimum rotation angle Omega defines the misfit between the hypothetical stress tensor (sigma1_Sh, sigma3_Sh, sigma2_Sh)
@@ -255,18 +524,18 @@ export class NeoformedStriatedPlane extends Data {
 
                 } else {
                     // The stress axis nSigma1_Sh_Rot is NOT located at an angle within the valid Mohr Circle Angular Interval (MCAI):
-                    //       [sigma1_Sm_Mean - deltaTheta1_Sm, sigma1_Sm_Mean + deltaTheta1_Sm]
+                    //       [nSigma1_Sm_Mean - deltaTheta1_Sm, nSigma1_Sm_Mean + deltaTheta1_Sm]
                     // Thus we shall examine 3 points of the Mohr Circle angular interval, in order to determine the minimum rotation 
                     //      between principal stress axes (sigma1_Sh, sigma3_Sh, sigma2_Sh) and (sigma1_Sm, sigma3_Sm, sigma2_Sm)
 
-                    const OmegaMC = [0,0,0]
+                    const OmegaMC = [0, 0, 0]
                     const MrotHTrot = [newMatrix3x3(), newMatrix3x3(), newMatrix3x3()]
                     for (let i = 0; i < 3; i++) {
                         // The cost function for a micro/meso structure is defined as the minimum angular rotation between reference systems Sh and Sm(i(), where:
                         //      Sh is defined according to the hypothetical stress tensor solution ('h' stands for hypothetical);
                         //      Sm(i) is defined according to the micro/meso structure stress tensors Mrot[i] ('m' an 'M' stand for micro/meso structure).
 
-                        // The rotation tensor MrotHTrot between systems Sh and Sm is such that: Vm = MrotHTrot Vh (where Vh is defined in S' or S''), 
+                        // The rotation tensor MrotHTrot between systems Sh and Sm is such that: Vm = MrotHTrot Vh (where Vh is defined in Sr or Sw), 
                         //      where MrotHTrot = Mrot . HTrot (HTrot = Hrot transposed):
                         MrotHTrot[i] = multiplyTensors({ A: this.Mrot[i], B: transposeTensor(stress.Hrot) })
 
@@ -278,83 +547,85 @@ export class NeoformedStriatedPlane extends Data {
 
                     // Calculate the minimum rotation angle between reference systems Sh and Sm(i) (i = 0,1,2 )
                     const misfit = Math.min(...OmegaMC)
-                    if ( misfit === OmegaMC[1]) { 
-                        throw new Error('The minimum rotation angle for neoformed striated plane ' + this.noPlane + ' corresponds to the middle point int he Mohr circle'
-                                        + ' Thus the rotation angle is not a simple monotonic function!' )
+                    if (misfit === OmegaMC[1]) {
+                        throw new Error('The minimum rotation angle for neoformed striated plane ' + this.noPlane + ' corresponds to the middle point in the Mohr circle'
+                            + ' Thus the rotation angle is not a simple monotonic function!')
                     }
                 }
             }
         }
     }
 
-    // meanSigma1DeltaThetaNeoformedStriatedPlane and rotationTensors_S2Sm_Mrot are executed only once, after reading the data type. *********
-    meanSigma1DeltaThetaNeoformedStriatedPlane() {
-        /*
-        // This method calculates a vector sigma1_Sm_Mean and deltaTheta1_Sm such that:
-        //      sigma1_Sm_Mean = unit vector Sigma 1 defined in reference system Sm, whose location in the Mohr Circle is centred around the valid angular interval.
+    private nSigma1_Sm_Mean_deltaTheta1_Sm_MohrCircle() {
+        // This method calculates vector sigma1_Sm_Mean and deltaTheta1_Sm such that:
+        //      nSigma1_Sm_Mean = unit vector Sigma 1 defined in reference system Sm, whose location in the Mohr Circle is centred in the valid angular interval.
         //      deltaTheta1_Sm = angle between sigma1_Sm_Mean and the stress axis located at the boundaries of the Mohr circle angular interval.
-    
-        if (sigma1_Nplane_AngleIntervalNsp) {
+
+        if (this.nSigma1_nPlane_AngleInterval) {
             // Case 3: The  <Sigma 1,n> angular interval is defined:
-            //  The angle between sigma1nsp and the normal to the fault plane is constrained within interval <sigma1_nplaneMin,sigma1_nplaneMax>
-            this.angleMean_sigma1_Sm_nplane = ( this.sigma1_nplane_AngleMin + this.sigma1_nplane_AngleMax ) / 2
-            this.deltaTheta1_Sm = ( this.sigma1_nplane_AngleMax - this.sigma1_nplane_AngleMin ) / 2
-        
-        } else if (frictionAngleInterval) {
+            //  The angle between nSigma1_Sm and the normal to the fault plane is constrained within interval [nSigma1_nPlane_AngleMin, nSigma1_nPlane_AngleMax]
+            this.angleMean_nSigma1_Sm_nPlane = (this.nSigma1_nPlane_AngleMin + this.nSigma1_nPlane_AngleMax) / 2
+            this.deltaTheta1_Sm = (this.nSigma1_nPlane_AngleMax - this.nSigma1_nPlane_AngleMin) / 2
+
+        } else if (this.frictionAngleInterval) {
             // A specific friction angle interval is defined for the neoformed striated plane. Thus, 
             // Case 2: The friction angle phi is defined in interval [frictionAngleMin, frictionAngleMax]. Both friction angles belong to interval [0,PI/2)
             //      The angle <Sigma 1,n> can de readily calculated from the friction angle using relation:
             //      <Sigma 1,n> = PI/4 + phi/2
-            this.angleMean_sigma1_Sm_nplane = ( Math.PI + this.frictionAngleMin + this.frictionAngleMax ) / 4
-            this.deltaTheta1_Sm = ( this.frictionAngleMax - this.frictionAngleMin ) / 4
-        
-        } else {    
+            this.angleMean_nSigma1_Sm_nPlane = (Math.PI + this.frictionAngleMin + this.frictionAngleMax) / 4
+            this.deltaTheta1_Sm = (this.frictionAngleMax - this.frictionAngleMin) / 4
+
+        } else {
             // Case 1: The optional parameters concerning the friction angle interval or the <Sigma 1,n> angular interval are not specified
             // In such case, the location of the striated plane in the Mohr Circle is not constrained and includes all the left quadrant of the Circle.
-            // In other words, angle <Sigma 1,n> is in interval [PI/4,PI/2) - 45° angular interval
-            this.angleMean_sigma1_Sm_nplane = 3 * Math.PI / 8       // 67.5°
+            // In other words, angle <Sigma 1,n> is in interval [PI/4,PI/2)
+            this.angleMean_nSigma1_Sm_nPlane = 3 * Math.PI / 8       // 67.5°
             this.deltaTheta1_Sm = Math.PI / 8                       // 22.5°
         }
-        // sigma1_Sm_Mean is in the extensional quadrant of the plane of movement, and is define by:
-        //      sigma1_Sm_Mean = cos(angleMean_sigma1_Sm_nplane) nPlane - sin(angleMean_sigma1_Sm_nplane) nStriation
-        this.sigma1_Sm_Mean = add_Vectors( { U: constant_x_Vector( { k:   Math.cos(this.angleMean_sigma1_Sm_nplane), V: this.nPlane }, 
-                                             V: constant_x_Vector( { k: - Math.sin(this.angleMean_sigma1_Sm_nplane), V: this.nStriation }) } )
-        */
+        // nSigma1_Sm_Mean is in the extensional quadrant of the plane of movement, and is define by:
+        //      nSigma1_Sm_Mean = cos(angleMean_nSigma1_Sm_nPlane) nPlane - sin(angleMean_nSigma1_Sm_nPlane) nStriation
+        this.nSigma1_Sm_Mean = add_Vectors({
+            U: constant_x_Vector({ k: Math.cos(this.angleMean_nSigma1_Sm_nPlane), V: this.nPlane }),
+            V: constant_x_Vector({ k: - Math.sin(this.angleMean_nSigma1_Sm_nPlane), V: this.nStriation })
+        })
     }
 
-    rotationTensors_S2Sm_Mrot() {
-        /*
+    private rotationTensors_S2Sm_Mrot() {
         // This method calculates the 3 rotation matrixes Mrot[i] between the geographic reference system S = (X, Y, Z)
-        // and the references system Sm = (Xm, Ym, Zm) associated to the micro/meso structure (e.g., neoformed striated plane, such that:
+        // and the reference systems Sm = (Xm, Ym, Zm) associated to the micro/meso structure (e.g., neoformed striated plane, such that:
         //      Vm = Mrot[i] . V        where V and Vm are corresponding vectors in reference systems S and Sm
         // Sm is defined according to index i (1, 2, and 3), which represents a specific point in the Mohr-Circle angular interval.
 
+        // Calculate the unit vector parellel to Sigma2_Sm, which is perpendicular to nPlane and nStriation:
+        this.nSigma2_Sm = normalizedCrossProduct({ U: this.nPlane, V: this.nStriation })
+
         // Firstly, we calculate the angles defining 3 points of the valid Mohr Circle angular interval (MCAI):
         // angle_nPlane_nSigma1_Sm[i] = angle between the normal to the plane and the stress axis sigma1_Sm for 3 points located in the MCAI:
-        let this.angle_nPlane_nSigma1_Sm = []
+        let angle_nPlane_nSigma1_Sm = []
         // Minimum angle in the interval
-        this.angle_nPlane_nSigma1_Sm[0] = this.sigma1_Sm_Mean - this.deltaTheta1_Sm
+        angle_nPlane_nSigma1_Sm[0] = this.angleMean_nSigma1_Sm_nPlane - this.deltaTheta1_Sm
         // Middle point
-        this.angle_nPlane_nSigma1_Sm[1] = this.sigma1_Sm_Mean 
+        angle_nPlane_nSigma1_Sm[1] = this.angleMean_nSigma1_Sm_nPlane
         // Maximum angle in the interval
-        this.angle_nPlane_nSigma1_Sm[2] = this.sigma1_Sm_Mean + this.deltaTheta1_Sm
+        angle_nPlane_nSigma1_Sm[2] = this.angleMean_nSigma1_Sm_nPlane + this.deltaTheta1_Sm
 
         for (let i = 0; i < 3; i++) {
             // Loop for calculating the transformation matrixes Mrot[i]
             // sigma1_Sm is defined in the plane of movement (dilatant quadrant) in terms of angle angle_nPlane_nSigma1_Sm[i]
-            this.sigma1_Sm = add_Vectors( { U: constant_x_Vector( { k:   Math.cos(this.angle_nPlane_nSigma1_Sm[i]), V: this.nPlane }, 
-                                            V: constant_x_Vector( { k: - Math.sin(this.angle_nPlane_nSigma1_Sm[i]), V: this.nStriation }) }
+            this.nSigma1_Sm = add_Vectors({
+                U: constant_x_Vector({ k: Math.cos(angle_nPlane_nSigma1_Sm[i]), V: this.nPlane }),
+                V: constant_x_Vector({ k: - Math.sin(angle_nPlane_nSigma1_Sm[i]), V: this.nStriation })
+            })
             // The micro/meso structure stress tensor  (sigma1_Sm, sigma3_Sm, sigma2_Sm) is right handed: 
-            this.sigma3_Sm = crossProduct( {U: this.nSigma2_Sm, V: this.nSigma1_Sm} )
-            
+            this.nSigma3_Sm = crossProduct({ U: this.nSigma2_Sm, V: this.nSigma1_Sm })
+
             // Mrot[i] = rotation matrixes for the micro/meso structure reference systems (sigma1_Sm, sigma3_Sm, sigma2_Sm) corresponding to the 3 points in the
             //          Mohr-Circle angular interval. The micro/meso structure is defined according to the data type (i.e., the neoformed striated plane):
             //      Vm = Mrot[i] . V
             // where V and Vm are corresponding vectors in reference systems S and Sm
 
             // Mrot[i] is an array containing 3x3 matrices
-            this.Mrot[i] = rotationTensor_Sa_Sb({ Xb: sigma1_Sm, Yb: nSigma3_Sm, Zb: sigma2_Sm } )
+            this.Mrot[i] = rotationTensor_Sa_Sb({ Xb: this.nSigma1_Sm, Yb: this.nSigma3_Sm, Zb: this.nSigma2_Sm })
         }
-        */
     }
 }

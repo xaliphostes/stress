@@ -104,24 +104,24 @@ export class GridSearch implements SearchMethod {
         const newSolution = cloneMisfitCriteriunSolution(misfitCriteriaSolution)
 
         for (let i = - nodesAngleInterval; i <= nodesAngleInterval; i++) {
-            // Angular variation around axis X': ROLL
+            // Angular variation around axis Xr: ROLL
             let deltaPhi = i * deltaGridAngleRad
             let cosDeltaPhi = Math.cos(deltaPhi)
             let sinDeltaPhi = Math.sin(deltaPhi)
             for (let j = - nodesAngleInterval; j <= nodesAngleInterval; j++) {
-                // Angular variation around axis Y': PITCH
+                // Angular variation around axis Yr: PITCH
                 let deltaTheta = j * deltaGridAngleRad
                 let cosDeltaTheta = Math.cos(deltaTheta)
                 let sinDeltaTheta = Math.sin(deltaTheta)
                 for (let k = - nodesAngleInterval; k <= nodesAngleInterval; k++) {
-                    // Angular variation around axis Z': YAW
+                    // Angular variation around axis Zr: YAW
                     const deltaAlpha = k * deltaGridAngleRad
                     let cosDeltaAlpha = Math.cos(deltaAlpha)
                     let sinDeltaAlpha = Math.sin(deltaAlpha)
 
-                    // Calculate rotation tensors Drot and DTrot between systems S' and S'' such that:
-                    //  V'  = DTrot V''        (DTrot is tensor Drot transposed)
-                    //  V'' = Drot  V'
+                    // Calculate rotation tensors Drot and DTrot between systems Sr and Sw such that:
+                    //  Vr  = DTrot Vw        (DTrot is tensor Drot transposed)
+                    //  Vw = Drot  Vr
                     DTrot = rotationTensorDT(cosDeltaPhi,sinDeltaPhi,cosDeltaTheta,sinDeltaTheta,cosDeltaAlpha,sinDeltaAlpha)
                     Drot  = transposeTensor(DTrot)
 
@@ -130,11 +130,12 @@ export class GridSearch implements SearchMethod {
                     // from the components of the tensor definning a proper rotation
                     // let {rotAxis, rotAxisSpheCoords, rotMag} = rotationParamsFromRotTensor({rotTensor: DTrot}) // **
 
-                    // Calculate rotation tensors Wrot and WTrot between systems S and S'': WTrot = RTrot DTrot, such that:
-                    //  V   = WTrot V''        (WTrot is tensor Wrot transposed)
-                    //  V'' = Wrot  V
+                    // Calculate rotation tensors Wrot and WTrot between systems S and Sw: WTrot = RTrot DTrot, such that:
+                    //  V   = WTrot Vw        (WTrot is tensor Wrot transposed)
+                    //  Vw = Wrot  V
                     //  S   =  (X, Y, Z ) is the geographic reference frame  oriented in (East, North, Up) directions.
-                    //  S'' =  (X'', Y'', Z'' ) is the principal reference frame for a fixed node in the search grid (sigma_1, sigma_3, sigma_2)
+                    //  Sw =  (Xw, Yw, Zw ) is the principal reference frame for a fixed node in the search grid (sigma_1, sigma_3, sigma_2) ('w' stands for 'winning' solution)
+                    //      The letters 'W' and 'w' stand for 'Win' since the search method leads to the winning solution. 
                     WTrot = multiplyTensors({A: transposeTensor(this.Rrot), B: DTrot })
                     //  Wrot = Drot Rrot
                     Wrot  = transposeTensor( WTrot )
@@ -146,7 +147,7 @@ export class GridSearch implements SearchMethod {
                         let stressRatio = this.stressRatio0 + l * this.deltaStressRatio
                         if ( stressRatio >= 0 && stressRatio <= 1 ) {   // The strees ratio is in interval [0,1]
 
-                            // Calculate the stress tensor STdelta in reference frame S from the stress tensor in reference frame S''
+                            // Calculate the stress tensor STdelta in reference frame S from the stress tensor in reference frame Sw
                             const STdelta = stressTensorDelta(stressRatio, Wrot, WTrot)
                             this.engine.setRemoteStress(STdelta)
 
@@ -184,13 +185,14 @@ export class GridSearch implements SearchMethod {
 function rotationTensorDT(cosDeltaPhi: number, sinDeltaPhi : number, cosDeltaTheta : number,sinDeltaTheta : number,
     cosDeltaAlpha : number, sinDeltaAlpha: number ): Matrix3x3
 {
-    // Calculate the rotation tensor DT between reference frame S' and S'', such that:
-    //  V'  = DT V''        (DT is tensor D transposed)
-    //  V'' = D  V'
-    //  S' = (X',Y',Z') is the principal stress reference frame obtained by the user from the interactive analysis, parallel to (sigma_1, sigma_3, sigma_2);
-    //  S'' =  (X'', Y'', Z'' ) is the principal reference frame for a fixed node in the search grid (sigma_1, sigma_3, sigma_2)
+    // Calculate the rotation tensor DT between reference frame Sr and Sw, such that:
+    //  Vr  = DT Vw        (DT is tensor D transposed)
+    //  Vw = D  Vr
+    //  Sr = (Xr,Yr,Zr) is the principal stress reference frame obtained by the user from the interactive analysis, parallel to (sigma_1, sigma_3, sigma_2);
+    //      'r' stands for 'rough' solution
+    //  Sw =  (Xw, Yw, Zw ) is the principal reference frame for a fixed node in the search grid (sigma_1, sigma_3, sigma_2) ('w' stands for 'winning' solution)
 
-    // The columns of matrix D are given by the unit vectors parallel to X1'', X2'', and X3'' defined in reference system S':
+    // The columns of matrix D are given by the unit vectors parallel to X1'', X2'', and X3'' defined in reference system Sr :
 
     const DT: Matrix3x3 = newMatrix3x3()
 

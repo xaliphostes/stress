@@ -4,6 +4,9 @@ import { cloneMisfitCriteriunSolution, MisfitCriteriunSolution } from "../Invers
 import { Matrix3x3, newMatrix3x3, newMatrix3x3Identity } from "../types";
 import { SearchMethod } from "./SearchMethod";
 
+/**
+ * @category Search-Method
+ */
 export class DebugSearch implements SearchMethod {
     private engine: Engine = new HomogeneousEngine()
 

@@ -17,6 +17,9 @@ export type MonteCarloParams = {
     Rrot?: Matrix3x3
 }
 
+/**
+ * @category Search-Method
+ */
 export class MonteCarlo implements SearchMethod {
     private rotAngleHalfInterval: number
     private nbRandomTrials: number
@@ -90,16 +93,16 @@ export class MonteCarlo implements SearchMethod {
             // We only consider positive rotation angles around each rotation axis, since the whole sphere is covered by angles (phi,theta)
             let rotAngle = Math.random() * this.rotAngleHalfInterval
                 
-            // Calculate rotation tensors Drot and DTrot between systems S' and S'' such that:
-            //  V'  = DTrot V''        (DTrot is tensor Drot transposed)
-            //  V'' = Drot  V'
+            // Calculate rotation tensors Drot and DTrot between systems Sr and Sw such that:
+            //  Vr  = DTrot Vw        (DTrot is tensor Drot transposed)
+            //  Vw = Drot  Vr
             DTrot = properRotationTensor({nRot: rotAxis, angle: rotAngle})
             Drot  = transposeTensor(DTrot)
-            // Calculate rotation tensors Wrot and WTrot between systems S and S'': WTrot = RTrot DTrot, such that:
-            //  V   = WTrot V''        (WTrot is tensor Wrot transposed)
-            //  V'' = Wrot  V
+            // Calculate rotation tensors Wrot and WTrot between systems S and Sw: WTrot = RTrot DTrot, such that:
+            //  V   = WTrot Vw        (WTrot is tensor Wrot transposed)
+            //  Vw = Wrot  V
             //  S   =  (X, Y, Z ) is the geographic reference frame  oriented in (East, North, Up) directions.
-            //  S'' =  (X'', Y'', Z'' ) is the principal reference frame for a fixed node in the search grid (sigma_1, sigma_3, sigma_2)
+            //  Sw =  (Xw, Yw, Zw ) is the principal reference frame for a fixed node in the search grid (sigma_1, sigma_3, sigma_2) ('w' stands for 'winning' solution)
             WTrot = multiplyTensors({A: this.RTrot, B: DTrot })
             //  Wrot = Drot Rrot
             Wrot  = transposeTensor( WTrot )
@@ -107,17 +110,17 @@ export class MonteCarlo implements SearchMethod {
             // Stress ratio variation around R = (S2-S3)/(S1-S3)
             let stressRatio = stressRatioMin + Math.random() * stressRatioEffectiveInterval // The strees ratio is in interval [0,1]
 
-            // Calculate the stress tensor STdelta in reference frame S from the stress tensor in reference frame S''
+            // Calculate the stress tensor STdelta in reference frame S from the stress tensor in reference frame Sw
             // STdelta is defined according to the continuum mechanics sign convention : compression < 0
-            let STdelta = stressTensorDelta(stressRatio, Wrot, WTrot)
+            // COMMENTED BELOW
+            // let STdelta = stressTensorDelta(stressRatio, Wrot, WTrot)
 
             // const misfit = data.reduce( (previous, current) => {
             //     return previous + current.cost({stress: STdelta, rot: Wrot}
             // )} , 0) / data.length
 
-            
-            this.engine.setRemoteStress(STdelta)
-            this.engine.setHrot(Wrot)
+            this.engine.setHStress(Wrot, stressRatio)
+
             const misfit = data.reduce( (previous, current) => {
                 return previous + current.cost({stress: this.engine.stress(current.position)})
             } , 0) / data.length
@@ -127,7 +130,7 @@ export class MonteCarlo implements SearchMethod {
                 newSolution.rotationMatrixD = cloneMatrix3x3(Drot)
                 newSolution.rotationMatrixW = cloneMatrix3x3(Wrot)
                 newSolution.stressRatio = stressRatio
-                newSolution.stressTensorSolution = STdelta
+                newSolution.stressTensorSolution = this.engine.S() // was STdelta
             }
 
             // const misfitSum  = misfitCriteriaSolution.criterion.value(STdelta)
@@ -191,22 +194,22 @@ private monteCarloSearch() {
             // We only consider positive rotation angles around each rotation axis, since the whole sphere is covered by angles (phi,theta)
             let rotAngle = Math.random() * this.rotAngleHalfInterval
                 
-            // Calculate rotation tensors Drot and DTrot between systems S' and S'' such that:
-            //  V'  = DTrot V''        (DTrot is tensor Drot transposed)
-            //  V'' = Drot  V'
+            // Calculate rotation tensors Drot and DTrot between systems Sr and Sw such that:
+            //  Vr  = DTrot Vw        (DTrot is tensor Drot transposed)
+            //  Vw = Drot  Vr
             DTrot = properRotationTensor(rotAxis, rotAngle)
             Drot  = transposeTensor(DTrot)
-            // Calculate rotation tensors Wrot and WTrot between systems S and S'': WTrot = RTrot DT, such that:
-            //  V   = WTrot V''        (WTrot is tensor Wrot transposed)
-            //  V'' = Wrot  V
+            // Calculate rotation tensors Wrot and WTrot between systems S and Sw: WTrot = RTrot DT, such that:
+            //  V   = WTrot Vw        (WTrot is tensor Wrot transposed)
+            //  Vw = Wrot  V
             //  S   =  (X, Y, Z ) is the geographic reference frame  oriented in (East, North, Up) directions.
-            //  S'' =  (X'', Y'', Z'' ) is the principal reference frame for a fixed node in the search grid (sigma_1, sigma_3, sigma_2)
+            //  Sw =  (Xw, Yw, Zw ) is the principal reference frame for a fixed node in the search grid (sigma_1, sigma_3, sigma_2) ('w' stands for 'winning' solution)
             WTrot = multiplyTensors({A: this.RTrot, B: DTrot })
             Wrot  = transposeTensor( WTrot )
 
             // Stress ratio variation around R = (S2-S3)/(S1-S3)
             let stressRatio = stressRatioMin + Math.random() * stressRatioEffectiveInterval // The strees ratio is in interval [0,1]
-            // Calculate the stress tensor STdelta in reference frame S from the stress tensor in reference frame S''
+            // Calculate the stress tensor STdelta in reference frame S from the stress tensor in reference frame Sw
             let STdelta = stressTensorDelta(stressRatio, Wrot, WTrot)
 
             this.misfitCriteriaSolution.forEach( bestSolution => {

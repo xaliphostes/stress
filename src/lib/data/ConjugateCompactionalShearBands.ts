@@ -1,6 +1,6 @@
 import { add_Vectors, Matrix3x3, multiplyTensors, normalizedCrossProduct, normalizeVector, scalarProductUnitVectors, transposeTensor, Vector3 } from "../types"
 import { FractureStrategy, StriatedPlaneProblemType } from "./types"
-import { ConjugatePlanes } from "../utils/ConjugatePlanes"
+import { ConjugatePlanesHelper } from "../utils/ConjugatePlanesHelper"
 import { getDirectionFromString, getSensOfMovementFromString } from "../utils"
 import { minRotAngleRotationTensor } from "../types/math"
 import { DataParameters } from "./DataParameters"
@@ -51,7 +51,9 @@ import { TensorParameters } from "../geomeca"
 
     @category Data
  */
-export class ConjugateCompactionalShearBands extends Data {
+export class ConjugateCompactionalShearBands extends ConjugateFaults {
+    // The initialize and nbLinkedData methods are inherited from Conjugate Faults
+
     protected nPlane1: Vector3 = undefined
     protected nPlane2: Vector3 = undefined
     protected nStriation1: Vector3 = undefined
@@ -86,6 +88,25 @@ export class ConjugateCompactionalShearBands extends Data {
 
     // params1 and params2 contain data defining compactional shear bands 1 and 2
     // we have replaced azimuth by strike
+
+    /*
+    description(): any {
+        return {
+            // Mandatory data: 
+            // 0 = Data number
+            // 1 = Data type: Conjugate Compactional Shear Band (No 1 & No 2) 
+            //                Data are specified in two contiguous lines
+            // -----------------------------
+            // Plane orientation : 
+            // 2, 3, 4 = Strike, dip, dip direction
+            mandatory: [2, 3, 4],
+            // Optional data:
+            // 8      = Type of movement
+            // 11, 12 = Deformation phase, relative weight 
+            // 15, 16 = Minimum angle <Sigma 1, nPlane>, maximum angle <Sigma 1, nPlane> (one or both may de defined)
+            optional: [8, 11, 12, 15, 16]
+        }
+    }
 
     nbLinkedData(): number {
         return 2
@@ -133,7 +154,7 @@ export class ConjugateCompactionalShearBands extends Data {
             rake: params[0].rake,
             strikeDirection: getDirectionFromString(params[0].strikeDirection)
         }
-        this.cf1 = ConjugatePlanes.create(this.params1)
+        this.cf1 = ConjugatePlanesHelper.create(this.params1)
 
         // conjugate compactional shear band 1 is defined: (strike1, dip1, dipDirection1)
         this.plane1 = true
@@ -151,7 +172,7 @@ export class ConjugateCompactionalShearBands extends Data {
             rake: params[1].rake,
             strikeDirection: getDirectionFromString(params[1].strikeDirection)
         }
-        this.cf2 = ConjugatePlanes.create(this.params2)
+        this.cf2 = ConjugatePlanesHelper.create(this.params2)
         // conjugate compactional shear band 1 is defined: (strike1, dip1, dipDirection1)
         this.plane2 = true
         // Calculate the unit vector normal to plane 1: nPlane1
@@ -165,12 +186,13 @@ export class ConjugateCompactionalShearBands extends Data {
         // const sp = scalarProductUnitVectors({U: nPlane, V: nStriation})
         //*if (Math.abs(sp) >this.EPS) {
             throw new Error(`striation is not on the compactional shear band. Dot product gives ${sp}`)
-        } **/
+        } 
 
         this.checkConjugatePlanes()
 
         return true
     }
+    */
 
     check({ displ, strain, stress }: { displ: Vector3, strain: Matrix3x3, stress: Matrix3x3 }): boolean {
         if (this.problemType === StriatedPlaneProblemType.DYNAMIC) {
@@ -184,25 +206,25 @@ export class ConjugateCompactionalShearBands extends Data {
         if (this.problemType === StriatedPlaneProblemType.DYNAMIC) {
             // The cost function uses the rotation tensor Mrot from reference system S to Sm, calculated in method checkCompactionShearBands
 
-            // The cost function for two conjugate faults is defined as the minimum angular rotation between system Sm and the stress tensor in system S' or S'':
+            // The cost function for two conjugate faults is defined as the minimum angular rotation between system Sm and the stress tensor in system Sr or Sw:
             //  S   =  (X, Y, Z ) is the geographic reference frame  oriented in (East, North, Up) directions.
-            //  S'  =  (X', Y', Z' ) is the principal reference frame chosen by the user in the interactive search phase.
-            //  S'' =  (X'', Y'', Z'' ) is the principal reference frame for a fixed node in the search grid (sigma_1, sigma_3, sigma_2)
-            // Rotation tensors Rrot and RTrot between systems S and S' are such that:
+            //  Sr  =  (Xr, Yr, Zr ) is the principal reference frame chosen by the user in the interactive search phase ('r' stands for 'rough' solution)
+            //  Sw =  (Xw, Yw, Zw ) is the principal reference frame for a fixed node in the search grid (sigma_1, sigma_3, sigma_2) ('w' stands for 'winning' solution)
+            // Rotation tensors Rrot and RTrot between systems S and Sr are such that:
 
-            //  V  = RTrot V'        (RTrot is tensor Rrot transposed)
-            //  V' = Rrot  V
+            //  V  = RTrot Vr        (RTrot is tensor Rrot transposed)
+            //  Vr = Rrot  V
 
-            // Rotation tensors Wrot and WTrot between systems S and S'' satisfy : WTrot = RTrot DTrot, such that:
-            //  V   = WTrot V''        (WTrot is tensor Wrot transposed)
-            //  V'' = Wrot  V
+            // Rotation tensors Wrot and WTrot between systems S and Sw satisfy : WTrot = RTrot DTrot, such that:
+            //  V   = WTrot Vw        (WTrot is tensor Wrot transposed)
+            //  Vw = Wrot  V
 
-            // The cost method implements a rotation tensor termed Hrot definning the orientation of the hypothetical solution stress sytem (H stands for hypothetical)
+            // The cost method implements a rotation tensor termed Hrot definning the orientation of the hypothetical solution stress system (H stands for hypothetical)
             // Hrot is equivalent to Rrot or Wrot depending on the calling functions:
             //      Hrot = Rrot in the interactive search phase using integral curves
             //      Hrot = Wrot in the inverse method search phase using Montecarlo (for example)
 
-            // The rotation tensor MrotHTrot between systems Sm and Sh (S' or S'') is such that: Vm = MrotHTrot . Vh (Vh = V' or Vh = V''), 
+            // The rotation tensor MrotHTrot between systems Sm and Sh (Sr or Sw) is such that: Vm = MrotHTrot . Vh (Vh = Vr or Vh = Vw), 
             // where MrotHTrot = Mrot . HTrot (HTrot = Hrot transposed):
             const MrotHTrot = multiplyTensors({ A: this.Mrot, B: transposeTensor(stress.Hrot) })
 
@@ -256,36 +278,36 @@ export class ConjugateCompactionalShearBands extends Data {
                         // In principle Sigma 3 bisects the obtuse angle (> 90°) between the normal vectors of the conjugate planes 
                         this.calculateSigma1_Sigma3_ObtuseAngleNormals_CCSB()
 
-                        // ****** let (coordinates1.phi, coordinates1.theta) and (coordinates2.phi, coordinates2.theta) be the spherical coords
-                        // of conjugate plaes 1 and 2 in the geographic reference system: S = (X,Y,Z) = (E,N,Up)
-                        // This requires using method faultSphericalCoords in class fault
-                        // Check that the sense of mouvement is consistent with the orientation of stress axes***
-                        if (this.params1.sensOfMovement !== 'UKN') {
-                            // The sense of movement is defined for conjugate plane 1 (UKN = unknown)
-                            // Check consitency of movement 
-                            this.cf1.conjugatePlaneCheckMouvement({
-                                noPlane: this.params1.noPlane,
-                                nPlane: this.nPlane1,
-                                coordinates: this.cf1.fault.sphericalCoords,
-                                nStriation: this.cf1.fault.striation,
-                                sensOfMovement: this.params1.sens_of_movement,
-                                nSigma3_Sm: this.nSigma3_Sm,
-                                nSigma2_Sm: this.nSigma2_Sm
-                            })
-                        }
-                        if (this.params2.sensOfMovement !== 'UKN') {
-                            // The sense of movement is defined for conjugate plane 2
-                            // Check consitency of movement
-                            this.cf2.conjugatePlaneCheckMouvement({
-                                noPlane: this.params2.noPlane,
-                                nPlane: this.nPlane2,
-                                coordinates: this.cf2.fault.sphericalCoords,
-                                nStriation: this.cf2.fault.striation,
-                                sensOfMovement: this.params2.sens_of_movement,
-                                nSigma3_Sm: this.nSigma3_Sm,
-                                nSigma2_Sm: this.nSigma2_Sm
-                            })
-                        }
+                    // ****** let (coordinates1.phi, coordinates1.theta) and (coordinates2.phi, coordinates2.theta) be the spherical coords
+                    // of conjugate plaes 1 and 2 in the geographic reference system: S = (X,Y,Z) = (E,N,Up)
+                    // This requires using method faultSphericalCoords in class fault
+                    // Check that the sense of mouvement is consistent with the orientation of stress axes***
+                    if (this.params1.sensOfMovement !== 'UKN') {
+                        // The sense of movement is defined for conjugate plane 1 (UKN = unknown)
+                        // Check consitency of movement 
+                        this.cf1.conjugatePlaneCheckMouvement({
+                            noPlane: this.params1.noPlane,
+                            nPlane: this.nPlane1,
+                            coordinates: this.cf1.fault.sphericalCoords,
+                            nStriation: this.cf1.fault.striation,
+                            sensOfMovement: this.params1.sens_of_movement,
+                            nSigma3_Sm: this.nSigma3_Sm,
+                            nSigma2_Sm: this.nSigma2_Sm
+                        })
+                    }
+                    if (this.params2.sensOfMovement !== 'UKN') {
+                        // The sense of movement is defined for conjugate plane 2
+                        // Check consitency of movement
+                        this.cf2.conjugatePlaneCheckMouvement({
+                            noPlane: this.params2.noPlane,
+                            nPlane: this.nPlane2,
+                            coordinates: this.cf2.fault.sphericalCoords,
+                            nStriation: this.cf2.fault.striation,
+                            sensOfMovement: this.params2.sens_of_movement,
+                            nSigma3_Sm: this.nSigma3_Sm,
+                            nSigma2_Sm: this.nSigma2_Sm
+                        })
+                    }
                     }
 
                 } else {

@@ -1,0 +1,1 @@
+- File `CompactionShearBandsHelper` seems to be useless

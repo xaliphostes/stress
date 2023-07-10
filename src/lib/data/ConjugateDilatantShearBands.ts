@@ -1,11 +1,12 @@
 import { Matrix3x3, Vector3 } from "../types"
 import { FractureStrategy, StriatedPlaneProblemType } from "./types"
 import { ConjugateFaults } from "./ConjugateFaults"
-import { ConjugatePlanes, getDirectionFromString, getSensOfMovementFromString } from "../utils"
+import { ConjugatePlanesHelper, getDirectionFromString, getSensOfMovementFromString } from "../utils"
 import { DataParameters } from "./DataParameters"
 
 /** 
  Conjugate Dilatant Shear Bands: 
+ 
  A pair of conjugate dilatant shear bands is defined by two planes whose plane of movement is perpendicular to the intersection line between the planes.
  The plane of movement is defined by the two normal vectors to the fault planes.
  In principle, the data type corresponding to conjugate dilatant shear bands includes the type of mouvement 
@@ -51,6 +52,8 @@ export class ConjugateDilatantShearBands extends ConjugateFaults {
 // For stress tensor calculation, conjugate dilatant shear bands are equivalent to conjugate faults:
 //      They are neoformed structures resulting from inelastic deformation combining dilation and shear (i.e. the frictional/cohesive yield surface)
 //      They are located in the left (extensional) half of the Mohr-Circle <Sigma 3, Sigma 1>
+// The initialize, check and cost methods are inherited from Conjugate Faults
+
     // protected nPlane1: Vector3 = undefined
     // protected nPlane2: Vector3 = undefined
     // protected nStriation1: Vector3 = undefined
@@ -90,6 +93,7 @@ export class ConjugateDilatantShearBands extends ConjugateFaults {
     //     return 2
     // }
 
+    /*
     initialize(params: DataParameters[]): boolean {
 
         let nPlane2Neg: Vector3
@@ -132,7 +136,7 @@ export class ConjugateDilatantShearBands extends ConjugateFaults {
             rake: params[0].rake,
             strikeDirection: getDirectionFromString(params[0].strikeDirection)
         }
-        this.cf1 = ConjugatePlanes.create(this.params1)
+        this.cf1 = ConjugatePlanesHelper.create(this.params1)
 
         // conjugate dilatant shear band 1 is defined: (strike1, dip1, dipDirection1)
         this.plane1 = true
@@ -150,7 +154,7 @@ export class ConjugateDilatantShearBands extends ConjugateFaults {
             rake: params[1].rake,
             strikeDirection: getDirectionFromString(params[1].strikeDirection)
         }
-        this.cf2 = ConjugatePlanes.create(this.params2)
+        this.cf2 = ConjugatePlanesHelper.create(this.params2)
         // conjugate dilatant shear band 1 is defined: (strike1, dip1, dipDirection1)
         this.plane2 = true
         // Calculate the unit vector normal to plane 1: nPlane1
@@ -164,10 +168,11 @@ export class ConjugateDilatantShearBands extends ConjugateFaults {
         // const sp = scalarProductUnitVectors({U: nPlane, V: nStriation})
         //*if (Math.abs(sp) >this.EPS) {
             throw new Error(`striation is not on the fault plane. Dot product gives ${sp}`)
-        } **/
+        } 
 
         this.checkConjugatePlanes()
 
         return true
     }
+    */
 }
