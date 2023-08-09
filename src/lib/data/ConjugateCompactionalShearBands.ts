@@ -1,12 +1,12 @@
-import { add_Vectors, Matrix3x3, multiplyTensors, normalizedCrossProduct, normalizeVector, scalarProductUnitVectors, transposeTensor, Vector3 } from "../types"
-import { FractureStrategy, StriatedPlaneProblemType } from "./types"
-import { ConjugatePlanesHelper } from "../utils/ConjugatePlanesHelper"
-import { getDirectionFromString, getSensOfMovementFromString } from "../utils"
+import { 
+    add_Vectors, Matrix3x3, multiplyTensors, 
+    normalizedCrossProduct, normalizeVector, 
+    scalarProductUnitVectors, transposeTensor, Vector3
+} from "../types"
+import { StriatedPlaneProblemType } from "./types"
 import { minRotAngleRotationTensor } from "../types/math"
-import { DataParameters } from "./DataParameters"
 import { ConjugateFaults } from "./ConjugateFaults"
-import { Data } from "./Data"
-import { TensorParameters } from "../geomeca"
+import { HypotheticalSolutionTensorParameters } from "../geomeca"
 
 /** 
  Compactional Shear Bands: 
@@ -52,147 +52,6 @@ import { TensorParameters } from "../geomeca"
     @category Data
  */
 export class ConjugateCompactionalShearBands extends ConjugateFaults {
-    // The initialize and nbLinkedData methods are inherited from Conjugate Faults
-
-    protected nPlane1: Vector3 = undefined
-    protected nPlane2: Vector3 = undefined
-    protected nStriation1: Vector3 = undefined
-    protected nStriation2: Vector3 = undefined
-
-    protected pos: Vector3 = undefined
-    protected problemType = StriatedPlaneProblemType.DYNAMIC
-    protected strategy = FractureStrategy.ANGLE
-    protected oriented = true
-    protected EPS = 1e-7
-    protected nPerpStriation: Vector3
-
-    protected plane1: Boolean = undefined
-    protected plane2: Boolean = undefined
-
-    // Principal directions of the data
-    protected nSigma1_Sm: Vector3 = undefined
-    protected nSigma2_Sm: Vector3 = undefined
-    protected nSigma3_Sm: Vector3 = undefined
-    protected Mrot: Matrix3x3 = undefined
-
-    protected cf1: any = undefined
-    protected cf2: any = undefined
-    protected params1: any = undefined
-    protected params2: any = undefined
-
-    protected striation1 = false
-    protected striation2 = false
-
-    //protected nSigma1_rot: Vector3 = undefined
-    //protected nSigma3_rot: Vector3 = undefined
-
-    // params1 and params2 contain data defining compactional shear bands 1 and 2
-    // we have replaced azimuth by strike
-
-    /*
-    description(): any {
-        return {
-            // Mandatory data: 
-            // 0 = Data number
-            // 1 = Data type: Conjugate Compactional Shear Band (No 1 & No 2) 
-            //                Data are specified in two contiguous lines
-            // -----------------------------
-            // Plane orientation : 
-            // 2, 3, 4 = Strike, dip, dip direction
-            mandatory: [2, 3, 4],
-            // Optional data:
-            // 8      = Type of movement
-            // 11, 12 = Deformation phase, relative weight 
-            // 15, 16 = Minimum angle <Sigma 1, nPlane>, maximum angle <Sigma 1, nPlane> (one or both may de defined)
-            optional: [8, 11, 12, 15, 16]
-        }
-    }
-
-    nbLinkedData(): number {
-        return 2
-    }
-
-    initialize(params: DataParameters[]): boolean {
-
-        let nPlane2Neg: Vector3
-
-        if (Number.isNaN(params[0].strike)) {
-            throw new Error('Missing strike angle for conjugate compactional shear band ' + params[0].noPlane)
-        }
-
-        if (Number.isNaN(params[0].dip)) {
-            throw new Error('Missing dip angle for conjugate compactional shear band ' + params[0].noPlane)
-        }
-
-        if (params[0].dip < 90 && params[0].dipDirection === undefined) {
-            throw new Error('Missing dip direction for conjugate compactional shear band ' + params[0].noPlane)
-        }
-
-        if (Number.isNaN(params[1].strike)) {
-            throw new Error('Missing strike angle for conjugate compactional shear band ' + params[1].noPlane)
-        }
-
-        if (Number.isNaN(params[1].dip)) {
-            throw new Error('Missing dip angle for conjugate compactional shear band ' + params[1].noPlane)
-        }
-
-        if (params[1].dip < 90 && params[1].dipDirection === undefined) {
-            throw new Error('Missing dip direction for conjugate compactional shear band ' + params[1].noPlane)
-        }
-
-        // if (this.nPlane1 === this.nPlane2 || this.nPlane1 === constant_x_Vector({k: -1, V: this.nPlane2}) ) {
-        //     throw new Error('The two compactional shear bands ' + params.noPlane1 + ' and ' + params.noPlane2 + ' are identical')
-        // }
-
-        // Check that nPlane and nStriation are unit vectors ***
-        this.params1 = {
-            noPlane: params[0].noPlane,
-            strike: params[0].strike,
-            dipDirection: getDirectionFromString(params[0].dipDirection),
-            dip: params[0].dip,
-            sensOfMovement: getSensOfMovementFromString(params[0].typeOfMovement),
-            rake: params[0].rake,
-            strikeDirection: getDirectionFromString(params[0].strikeDirection)
-        }
-        this.cf1 = ConjugatePlanesHelper.create(this.params1)
-
-        // conjugate compactional shear band 1 is defined: (strike1, dip1, dipDirection1)
-        this.plane1 = true
-        // Calculate the unit vector normal to plane 1: nPlane1
-        this.nPlane1 = this.cf1.nPlane
-
-        // -----------------------------------------
-
-        this.params2 = {
-            noPlane: params[1].noPlane,
-            strike: params[1].strike,
-            dipDirection: getDirectionFromString(params[1].dipDirection),
-            dip: params[1].dip,
-            sensOfMovement: getSensOfMovementFromString(params[1].typeOfMovement),
-            rake: params[1].rake,
-            strikeDirection: getDirectionFromString(params[1].strikeDirection)
-        }
-        this.cf2 = ConjugatePlanesHelper.create(this.params2)
-        // conjugate compactional shear band 1 is defined: (strike1, dip1, dipDirection1)
-        this.plane2 = true
-        // Calculate the unit vector normal to plane 1: nPlane1
-        this.nPlane2 = this.cf2.nPlane
-
-
-        /** this.nStriation = nStriation
-        // this.nPerpStriation = nPerpStriation
-
-        // Check orthogonality
-        // const sp = scalarProductUnitVectors({U: nPlane, V: nStriation})
-        //*if (Math.abs(sp) >this.EPS) {
-            throw new Error(`striation is not on the compactional shear band. Dot product gives ${sp}`)
-        } 
-
-        this.checkConjugatePlanes()
-
-        return true
-    }
-    */
 
     check({ displ, strain, stress }: { displ: Vector3, strain: Matrix3x3, stress: Matrix3x3 }): boolean {
         if (this.problemType === StriatedPlaneProblemType.DYNAMIC) {
@@ -202,7 +61,7 @@ export class ConjugateCompactionalShearBands extends ConjugateFaults {
     }
 
     cost({ displ, strain, stress }:
-        { displ?: Vector3, strain?: TensorParameters, stress?: TensorParameters }): number {
+        { displ?: Vector3, strain?: HypotheticalSolutionTensorParameters, stress?: HypotheticalSolutionTensorParameters }): number {
         if (this.problemType === StriatedPlaneProblemType.DYNAMIC) {
             // The cost function uses the rotation tensor Mrot from reference system S to Sm, calculated in method checkCompactionShearBands
 
@@ -282,20 +141,20 @@ export class ConjugateCompactionalShearBands extends ConjugateFaults {
                     // of conjugate plaes 1 and 2 in the geographic reference system: S = (X,Y,Z) = (E,N,Up)
                     // This requires using method faultSphericalCoords in class fault
                     // Check that the sense of mouvement is consistent with the orientation of stress axes***
-                    if (this.params1.sensOfMovement !== 'UKN') {
-                        // The sense of movement is defined for conjugate plane 1 (UKN = unknown)
+                    if (this.params1.typeOfMovement !== 'UND') {
+                        // The sense of movement is defined for conjugate plane 1 (UND = undefined)
                         // Check consitency of movement 
                         this.cf1.conjugatePlaneCheckMouvement({
                             noPlane: this.params1.noPlane,
                             nPlane: this.nPlane1,
                             coordinates: this.cf1.fault.sphericalCoords,
                             nStriation: this.cf1.fault.striation,
-                            sensOfMovement: this.params1.sens_of_movement,
+                            typeOfMovement: this.params1.type_of_movement,
                             nSigma3_Sm: this.nSigma3_Sm,
                             nSigma2_Sm: this.nSigma2_Sm
                         })
                     }
-                    if (this.params2.sensOfMovement !== 'UKN') {
+                    if (this.params2.typeOfMovement !== 'UND') {
                         // The sense of movement is defined for conjugate plane 2
                         // Check consitency of movement
                         this.cf2.conjugatePlaneCheckMouvement({
@@ -303,7 +162,7 @@ export class ConjugateCompactionalShearBands extends ConjugateFaults {
                             nPlane: this.nPlane2,
                             coordinates: this.cf2.fault.sphericalCoords,
                             nStriation: this.cf2.fault.striation,
-                            sensOfMovement: this.params2.sens_of_movement,
+                            typeOfMovement: this.params2.type_of_movement,
                             nSigma3_Sm: this.nSigma3_Sm,
                             nSigma2_Sm: this.nSigma2_Sm
                         })
@@ -345,7 +204,7 @@ export class ConjugateCompactionalShearBands extends ConjugateFaults {
         }
     }
 
-    private consistencyKinematicsPerpendicularPlanes(): void {
+    protected consistencyKinematicsPerpendicularPlanes(): void {
         // The angle between the 2 normals is approximately equal to PI/2:
         // In this situation, the orientation of Sigma 1 and Sigma 3 can be permuted.
         // The sense of mouvement of at least one conjugate compactional shear band must be known in order to define the orientation of the stress axes
@@ -354,27 +213,27 @@ export class ConjugateCompactionalShearBands extends ConjugateFaults {
         // typeMovementConsistency: boolean indicating if the current stress axes orientations are consistent or not with type of movement
         let typeMovementConsistency1, typeMovementConsistency2 = true
 
-        if (this.params1.sensOfMovement !== 'UKN' || this.params2.sensOfMovement !== 'UKN') {
+        if (this.params1.typeOfMovement !== 'UND' || this.params2.typeOfMovement !== 'UND') {
             // Find orientations of Sigma 1, Sigma 2 and Sigma 3, and check for consistency of mouvement if both movements are known.
 
             // Suppose that the bisecting line nSigma1_Sm is defined by the sum of normal vectors nPlane1 + nPlane2
             this.calculateSigma1_Sigma3_AcuteAngleNormals_CCSB()
 
-            if (this.params1.sensOfMovement !== 'UKN') {
-                // The sense of movement is defined for conjugate plane 1 (UKN = unknown)
+            if (this.params1.typeOfMovement !== 'UND') {
+                // The sense of movement is defined for conjugate plane 1 (UND = undefined)
                 // Check consitency of movement 
                 typeMovementConsistency1 = this.cf1.perpendicularPlanesCheckmovement({
                     noPlane: this.params1.noPlane,
                     nPlane: this.nPlane1,
                     coordinates: this.cf1.fault.sphericalCoords,
                     nStriation: this.cf1.fault.striation,
-                    sensOfMovement: this.params1.sens_of_movement,
+                    typeOfMovement: this.params1.type_of_movement,
                     nSigma3_Sm: this.nSigma3_Sm,
                     nSigma2_Sm: this.nSigma2_Sm
                 })
             }
 
-            if (this.params2.sensOfMovement !== 'UKN') {
+            if (this.params2.typeOfMovement !== 'UND') {
                 // The sense of movement is defined for conjugate plane 2
                 // Check consitency of movement
                 typeMovementConsistency2 = this.cf2.perpendicularPlanesCheckmovement({
@@ -382,7 +241,7 @@ export class ConjugateCompactionalShearBands extends ConjugateFaults {
                     nPlane: this.nPlane2,
                     coordinates: this.cf2.fault.sphericalCoords,
                     nStriation: this.cf2.fault.striation,
-                    sensOfMovement: this.params2.sens_of_movement,
+                    typeOfMovement: this.params2.type_of_movement,
                     nSigma3_Sm: this.nSigma3_Sm,
                     nSigma2_Sm: this.nSigma2_Sm
                 })
@@ -399,20 +258,20 @@ export class ConjugateCompactionalShearBands extends ConjugateFaults {
                 typeMovementConsistency1 = true
                 typeMovementConsistency2 = true
 
-                if (this.params1.sensOfMovement !== 'UKN') {
-                    // The sense of movement is defined for conjugate plane 1 (UKN = unknown)
+                if (this.params1.typeOfMovement !== 'UND') {
+                    // The sense of movement is defined for conjugate plane 1 (UND = undefined)
                     // Check consitency of movement 
                     typeMovementConsistency1 = this.cf1.perpendicularPlanesCheckmovement({
                         noPlane: this.params1.noPlane,
                         nPlane: this.nPlane1,
                         coordinates: this.cf1.fault.sphericalCoords,
                         nStriation: this.cf1.fault.striation,
-                        sensOfMovement: this.params1.sens_of_movement,
+                        typeOfMovement: this.params1.type_of_movement,
                         nSigma3_Sm: this.nSigma3_Sm,
                         nSigma2_Sm: this.nSigma2_Sm
                     })
                 }
-                if (this.params2.sensOfMovement !== 'UKN') {
+                if (this.params2.typeOfMovement !== 'UND') {
                     // The sense of movement is defined for conjugate plane 2
                     // Check consitency of movement
                     typeMovementConsistency2 = this.cf2.perpendicularPlanesCheckmovement({
@@ -420,7 +279,7 @@ export class ConjugateCompactionalShearBands extends ConjugateFaults {
                         nPlane: this.nPlane2,
                         coordinates: this.cf2.fault.sphericalCoords,
                         nStriation: this.cf2.fault.striation,
-                        sensOfMovement: this.params2.sens_of_movement,
+                        typeOfMovement: this.params2.type_of_movement,
                         nSigma3_Sm: this.nSigma3_Sm,
                         nSigma2_Sm: this.nSigma2_Sm
                     })

@@ -358,7 +358,7 @@ export class MohrCoulombCurve implements GenericCurve {
             } as MohrPoint
         }
         else {
-            throw new Error(`name ${name} is unknown. Should be 3_1, 3_2 or 2_1`)
+            throw new Error(`name ${name} is undefined. Should be 3_1, 3_2 or 2_1`)
         } 
         
     }

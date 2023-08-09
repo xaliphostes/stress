@@ -1,18 +1,33 @@
-import { Direction, SensOfMovement, directionExists, dirs, getDirectionFromString, getSensOfMovementFromString, mvts, sensOfMovementExists } from '../utils/FaultHelper'
+import { Direction, TypeOfMovement, directionExists, dirs, getDirectionFromString, getTypeOfMovementFromString, mvts, sensOfMovementExists } from '../utils/FaultHelper'
 import { DataFactory } from "./Factory"
 import { Data } from "./Data"
 
-export type DataMessages = {
+export type DataStatus = {
     status: boolean,
     messages: string[]
+}
+export function createDataStatus() {
+    return {
+        status: true,
+        messages: []
+    }
 }
 
 export type DataArgument = {
     toks: string[],
     index: number,
     data: Data,
-    result: DataMessages,
+    result: DataStatus,
     setIndex(i: number): DataArgument
+}
+export function createDataArgument(): DataArgument {
+    return {
+        toks: [],
+        index: -1,
+        data: undefined,
+        result: {status: true, messages: []},
+        setIndex(i: number): DataArgument {this.index = i; return this}
+    }
 }
 
 function myParseFloat(v: string, arg: DataArgument): number {
@@ -33,12 +48,12 @@ function myParseInt(v: string, arg: DataArgument): number {
     return w
 }
 
-function myParseTypeOfMovement(v: string, arg: DataArgument): SensOfMovement {
+function myParseTypeOfMovement(v: string, arg: DataArgument): TypeOfMovement {
     if (!sensOfMovementExists(v)) {
         arg.result.status = false
         arg.result.messages.push(`Data number ${arg.toks[0]}, column ${arg.index}: parameter for ${DataFactory.name(arg.data)}, ${DataDescription.names[arg.index]} is not a valid type of movement (got ${arg.toks[arg.index]}). Should be one of ${mvts}`)
     }
-    return getSensOfMovementFromString(v)
+    return getTypeOfMovementFromString(v)
 }
 
 function myParseDirection(v: string, arg: DataArgument): Direction {
@@ -113,11 +128,11 @@ export const DataDescription = {
         '',
         '[0, 360[',
         '[0, 90]',
-        '[N, S, E, W, NE, SE, SW, NW, UNKNOWN]',
+        '[N, S, E, W, NE, SE, SW, NW, UND]',
         '[0, 90]',
-        '[N, S, E, W, NE, SE, SW, NW, UNKNOWN]',
+        '[N, S, E, W, NE, SE, SW, NW, UND]',
         '[0, 360[',
-        '[N, I, RL, LL, N_RL, N_LL, I_RL, I_LL, UKN]',
+        '[N, I, RL, LL, N_RL, N_LL, I_RL, I_LL, UND]',
         '[0, 360[',
         '[0, 90]',
         '∈ N*',
@@ -129,7 +144,7 @@ export const DataDescription = {
         '[0, 90]',
         '[0, 360[',
         '[0, 90]',
-        '[N, S, E, W, NE, SE, SW, NW, UNKNOWN]',
+        '[N, S, E, W, NE, SE, SW, NW, UND]',
         '∈ R',
         '∈ R',
         '∈ R'
@@ -170,7 +185,7 @@ export const DataDescription = {
             return vv >= 0 && vv < 360
         },
         // 8
-        (v: string) => getSensOfMovementFromString(v),
+        (v: string) => getTypeOfMovementFromString(v),
         // 9
         (v: string) => {
             const vv = DataDescription.type[8](v)

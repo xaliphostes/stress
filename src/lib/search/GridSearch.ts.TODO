@@ -140,7 +140,7 @@ export class GridSearch implements SearchMethod {
                     //  Wrot = Drot Rrot
                     Wrot  = transposeTensor( WTrot )
 
-                    this.engine.setHrot(Wrot)
+                    this.engine.setHypotheticalStress(Wrot, this.stressRatio0)
 
                     for (let l = - nodesStressRatioInterval; l <= nodesStressRatioInterval; l++) {
                         // Stress ratio variation around R = (S2-S3)/(S1-S3)

@@ -1,3 +1,3 @@
 export { Engine } from './Engine'
-export { TensorParameters } from './TensorParameters'
+export { HypotheticalSolutionTensorParameters } from './HypotheticalSolutionTensorParameters'
 export { HomogeneousEngine } from './HomogeneousEngine'

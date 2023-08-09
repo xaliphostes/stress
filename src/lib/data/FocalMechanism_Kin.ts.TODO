@@ -6,9 +6,9 @@ import {
 }
 from "../types"
 import { isNumber } from "../utils"
-import { Data, DataParameters } from "./Data"
-import { StriatedPlaneProblemType } from "./StriatedPlane_Kin"
-import { FractureStrategy } from "./types"
+import { Data } from "./Data"
+import { DataStatus } from "./DataDescription"
+import { FractureStrategy, StriatedPlaneProblemType, Tokens } from "./types"
 
 // import { Fracture, FractureParams, FractureStrategy } from "./Fracture"
 
@@ -25,7 +25,7 @@ import { FractureStrategy } from "./types"
 
     The seismological data set has the following columns :
 
-    0      Data mumber                                  Mandatory datum
+    0      Data number                                  Mandatory datum
     1      Date (yyyy-mm-dd, e.g., 2019-09-22)
     2      Time (hh:mm:ss, e.g., 17-39-43)
     3      Latitude north in degrees (e.g., 45.98)
@@ -38,7 +38,7 @@ import { FractureStrategy } from "./types"
     10     Strike of nodal plane No 2 [0, 360)          Optional datum
     11     Dip of nodal plane No 2 [0, 90]              Optional datum
     12     Rake of nodal plane No 2 [-180, 180]         Optional datum
-    13     Fault type according to Zoback 1992 (5 categories: N, N_SS, SS, R_SS, R, and UNKNOWN for those not fitting in any of the five types)
+    13     Fault type according to Zoback 1992 (5 categories: N, N_SS, SS, R_SS, R, and UND for those not fitting in any of the five types)
     14     Quality inversion parameter according to Sarao et al. 2021 (4 is the best solution)
     15     Weight
 
@@ -60,7 +60,7 @@ import { FractureStrategy } from "./types"
     @category Data
  */
 
-export class FocalMechanismKin extends Data {
+export class FocalMechanism_Kin extends Data {
     // Unit vectors perpendicular to nodal planes
     protected nNodalPlane1: Vector3 = [0, 0, 0]
     protected nNodalPlane2: Vector3 = [0, 0, 0]
@@ -83,9 +83,9 @@ export class FocalMechanismKin extends Data {
 
     protected problemType = StriatedPlaneProblemType.DYNAMIC
     protected strategy: FractureStrategy = FractureStrategy.ANGLE
-    protected position: Point3D = undefined
+    protected position_: Point3D = undefined
 
-    initialize(params: DataParameters): boolean {
+    initialize(params: Tokens[]): DataStatus {
 
         /*
         if (Number.isNaN(params.strikeNodalPlane)) {

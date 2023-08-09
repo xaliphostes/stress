@@ -3,16 +3,17 @@
 import { crossProduct, Matrix3x3, newMatrix3x3, newVector3D, Vector3 } from "../types/math"
 import { deg2rad, tensor_x_Vector, spherical2unitVectorCartesian } from "../types/math"
 import { SphericalCoords } from "../types/SphericalCoords"
-import { Data } from "../data/Data"
+import { DataArgument, DataDescription, DataFactory, DataStatus, Plane, RuptureFrictionAngles, Sigma1_nPlaneAngle, Striation } from "../data"
+import { isDefined, isNumber } from "./numberUtils"
 
 /**
  * Usage:
  * ```ts
- * const sens = SensOfMovement.LL
+ * const sens = TypeOfMovement.LL
  * ```
  * @category Data
  */
-export const enum SensOfMovement {
+export const enum TypeOfMovement {
     N = 1,
     I,
     RL,
@@ -21,10 +22,10 @@ export const enum SensOfMovement {
     N_LL, 
     I_RL, 
     I_LL,
-    UKN
+    UND
 }
 
-export const mvts = ['N', 'I', 'RL', 'LL', 'N_RL', 'N_LL', 'I_RL', 'I_LL', 'UKN']
+export const mvts = ['N', 'I', 'RL', 'LL', 'N_RL', 'N_LL', 'I_RL', 'I_LL', 'UND']
 
 export function sensOfMovementExists(s: string): boolean {
     if (s.length === 0) {
@@ -33,17 +34,17 @@ export function sensOfMovementExists(s: string): boolean {
     return mvts.includes(s)
 }
 
-export function getSensOfMovementFromString(s: string): SensOfMovement {
+export function getTypeOfMovementFromString(s: string): TypeOfMovement {
     switch(s) {
-        case 'N': return SensOfMovement.N
-        case 'I': return SensOfMovement.I
-        case 'RL': return SensOfMovement.RL
-        case 'LL': return SensOfMovement.LL
-        case 'N_RL': return SensOfMovement.N_RL
-        case 'N_LL': return SensOfMovement.N_LL
-        case 'I_RL': return SensOfMovement.I_RL
-        case 'I_LL': return SensOfMovement.I_LL
-        case 'UKN': return SensOfMovement.UKN
+        case 'N': return TypeOfMovement.N
+        case 'I': return TypeOfMovement.I
+        case 'RL': return TypeOfMovement.RL
+        case 'LL': return TypeOfMovement.LL
+        case 'N_RL': return TypeOfMovement.N_RL
+        case 'N_LL': return TypeOfMovement.N_LL
+        case 'I_RL': return TypeOfMovement.I_RL
+        case 'I_LL': return TypeOfMovement.I_LL
+        case 'UND': return TypeOfMovement.UND
     }
 }
 
@@ -59,7 +60,7 @@ export const enum Direction {
     SE, // 5
     SW, // 6
     NW, // 7
-    UNKOWN,
+    UND,
     ERROR
 }
 
@@ -74,7 +75,7 @@ export function directionExists(s: string): boolean {
 
 export function getDirectionFromString(s: string): Direction {
     if (s.length === 0) {
-        return Direction.UNKOWN
+        return Direction.UND
     }
 
     switch(s) {
@@ -102,19 +103,25 @@ export function faultParams({strike, dipDirection, dip}:{strike: number, dipDire
  * Usage:
  * ```ts
  * const f = new Fault({strike: 30, dipDirection: Direction.E, dip: 60})
- * f.setStriation({rake: 20, strikeDirection: Direction.N, sensMouv: 'LL'})
+ * f.setStriation({rake: 20, strikeDirection: Direction.N, typeMov: 'LL'})
  * ```
  */
 export class FaultHelper {
 
-    static create(
-        {strike, dipDirection, dip, sensOfMovement, rake, strikeDirection}:
-        {strike: number, dipDirection: Direction, dip: number, sensOfMovement: SensOfMovement, rake?: number, strikeDirection?: Direction})
-    {
-        const f = new FaultHelper({strike, dipDirection, dip})
+    static create(plane: Plane, striation: Striation) {
+        const f = new FaultHelper({
+            strike: plane.strike, 
+            dipDirection: plane.dipDirection, 
+            dip: plane.dip
+        })
 
-        if (strikeDirection !== undefined) {
-            f.setStriation({sensOfMovement, rake, strikeDirection})
+        if (striation.strikeDirection !== undefined) {
+            f.setStriation({
+                typeOfMovement: striation.typeOfMovement, 
+                rake: striation.rake, 
+                strikeDirection: striation.strikeDirection,
+                // striationTrend: striation.trend
+            })
 
             return {
                 nPlane: f.normal,
@@ -182,13 +189,13 @@ export class FaultHelper {
      *   Striae trend: [0, 360)
      */
     setStriation(
-        {sensOfMovement, rake, strikeDirection}:
-        {sensOfMovement: SensOfMovement, rake: number, strikeDirection: Direction}): FaultHelper
+        {typeOfMovement, rake, strikeDirection}:
+        {typeOfMovement: TypeOfMovement, rake: number, strikeDirection: Direction}): FaultHelper
     {
         // check and set
         this.rake = rake
         this.strikeDirection = strikeDirection
-        this.sensMouv = sensOfMovement
+        this.typeMov = typeOfMovement
         this.faultStriationAngle_A()
         this.faultStriationAngle_B()
 
@@ -199,10 +206,10 @@ export class FaultHelper {
      * Special case for shallow angle plane.
      */
     setStriationShallowPlane(
-        {sensOfMovement, striationTrend}:
-        {sensOfMovement: SensOfMovement, striationTrend: Direction}): FaultHelper
+        {typeOfMovement, striationTrend}:
+        {typeOfMovement: TypeOfMovement, striationTrend: Direction}): FaultHelper
     {
-        this.sensMouv = sensOfMovement
+        this.typeMov = typeOfMovement
         this.striationTrend = striationTrend
         this.faultStriationAngle_A()
         this.faultStriationAngle_B()
@@ -223,6 +230,8 @@ export class FaultHelper {
         //      Fault strike: clockwise angle measured from the North direction [0, 360)
         //      Fault dip: [0, 90]
         //      Dip direction: (N, E, S, W) or a combination of two directions (NE, SE, SW, NW).
+        //          For horizontal planes and vertical planes with oblique rake th edip direction is undefined
+        //          For vertical planes with vertical striations the dip Direction has a different meaning: it points toward the uplifted block (particular case)
     
         // (phi,theta) : spherical coordinate angles defining the unit vector perpendicular to the fault plane (pointing upward)
         //                 in the geographic reference system: S = (X,Y,Z) = (E,N,Up)
@@ -245,8 +254,13 @@ export class FaultHelper {
         //      
         
         // The following 'if structure' calculates phi from the strike and dip direction of the fault plane:
-        if ( this.dip=== 90 ) {
-            // The fault plane is vertical and the dip direction is not defined
+        if ( this.dip === 0 ) {
+            // The fault plane is horizontal - the dip direction is undefined (UND)
+            // The radial unit vector points upward and the zimuthal angle can take any value
+            this.coordinates.phi = 0
+
+        } else if ( this.dip === 90 ) {
+            // The fault plane is vertical 
             if ( this.strike <= 180 ) {
                 // phi is in interval [0,PI]
                 this.coordinates.phi = Math.PI - deg2rad( this.strike )
@@ -254,8 +268,7 @@ export class FaultHelper {
                 // fault strike is in interval (PI,2 PI) and phi is in interval (PI,2 PI)
                 this.coordinates.phi = 3 * Math.PI - deg2rad( this.strike )
             }
-        }
-        else if ( this.strike === 0 ) {    // The fault plane is not vertical and the dip direction is defined
+        } else if ( this.strike === 0 ) {    // The fault plane is neither horizontal nor vertical and the dip direction is defined
     
             if ( this.dipDirection === Direction.E ) {
                 this.coordinates.phi = 0
@@ -267,11 +280,11 @@ export class FaultHelper {
         } else if ( this.strike < 90 ){
     
             if ( ( this.dipDirection === Direction.S ) || ( this.dipDirection === Direction.E ) || ( this.dipDirection === Direction.SE ) ) {
-                // this.strike + this.coordinates.phi = 2Pi
+                // this.strike + this.coordinates.phi = 2 PI
                 this.coordinates.phi = 2 * Math.PI - deg2rad( this.strike ) 
     
             } else if ( ( this.dipDirection === Direction.N ) || ( this.dipDirection === Direction.W ) || ( this.dipDirection === Direction.NW ) ) {
-                // this.strike + this.coordinates.phi = Pi
+                // this.strike + this.coordinates.phi = PI
                 this.coordinates.phi = Math.PI - deg2rad( this.strike ) 
             } else {
                 throw new Error(`dip direction is wrong. Should be N, S, E, W, SE or NW`)
@@ -396,8 +409,8 @@ export class FaultHelper {
         // if structure for calculating the striation angle in the local reference frame in polar coordinates from the rake:
 
         // The following 'if structure' calculates phi from the strike and dip direction (if defined) of the fault plane:
-        if ( this.dip=== 90 ) {
-            // The fault plane is vertical and the dip direction is not defined
+        if ( this.dip === 90 ) {
+            // The fault plane is vertical and the dip direction is undefined (UND)
     
             if ( this.strike === 0 ) {
                 // phi = PI
@@ -762,11 +775,11 @@ export class FaultHelper {
     
             if ( ( this.alphaStriaDeg >= 0 ) && ( this.alphaStriaDeg < 90 ) ) {   
                 // alphaStriaDeg has a left-lateral strike-slip component 
-                if ( this.sensMouv === SensOfMovement.RL) {
+                if ( this.typeMov === TypeOfMovement.RL) {
                     // Fault movement is oriented opposite to the present value of the striation angle
                     this.alphaStriaDeg += 180
                     this.alphaStria += Math.PI           
-                } else if ( this.sensMouv != SensOfMovement.LL) {
+                } else if ( this.typeMov != TypeOfMovement.LL) {
                     throw new Error(`sense of mouvement is not consistent with fault data. Should be RL or LL`)
                 }
             } else if ( this.alphaStriaDeg === 90 ) {   // Pure dip-slip mouvement
@@ -775,11 +788,11 @@ export class FaultHelper {
     
             } else if (this.alphaStriaDeg <= 180) {   
                 // 90 < alphaStriaDeg <= 180 means that the fault is normal-right-lateral
-                if ( this.sensMouv === SensOfMovement.LL) {
+                if ( this.typeMov === TypeOfMovement.LL) {
                     // Fault movement is oriented opposite to the present value of the striation angle
                     this.alphaStriaDeg += 180
                     this.alphaStria += Math.PI           
-                } else if ( this.sensMouv != SensOfMovement.RL) {
+                } else if ( this.typeMov != TypeOfMovement.RL) {
                     throw new Error(`sense of mouvement is not consistent with fault data. Should be RL or LL`)
                 }
             } else {  
@@ -790,45 +803,45 @@ export class FaultHelper {
     
             if ( this.alphaStriaDeg === 0 ) {   // Pure strike-slip mouvement
                 // alphaStriaDeg = 0 means that the fault is left-lateral
-                if ( this.sensMouv === SensOfMovement.RL) {
+                if ( this.typeMov === TypeOfMovement.RL) {
                     // Fault movement is oriented opposite to the present value of the striation angle
                     this.alphaStriaDeg = 180        // Striation values are recalculated
                     this.alphaStria = Math.PI           
-                } else if ( this.sensMouv != SensOfMovement.LL) {
+                } else if ( this.typeMov != TypeOfMovement.LL) {
                     throw new Error(`sense of mouvement is not consistent with fault data. Should be RL or LL`)
                 }
             } else if (this.alphaStriaDeg < 90) {   // Strike-slip and dip slip mouvement
                 // 0 < alphaStriaDeg < 90 means that the fault is normal-left-lateral
-                if ( (this.sensMouv === SensOfMovement.RL) || (this.sensMouv === SensOfMovement.I) || (this.sensMouv === SensOfMovement.I_RL) ) {
+                if ( (this.typeMov === TypeOfMovement.RL) || (this.typeMov === TypeOfMovement.I) || (this.typeMov === TypeOfMovement.I_RL) ) {
                     this.alphaStriaDeg += 180
                     this.alphaStria += Math.PI    
-                } else if ( (this.sensMouv !== SensOfMovement.LL) && (this.sensMouv !== SensOfMovement.N) && (this.sensMouv !== SensOfMovement.N_LL) ) {
+                } else if ( (this.typeMov !== TypeOfMovement.LL) && (this.typeMov !== TypeOfMovement.N) && (this.typeMov !== TypeOfMovement.N_LL) ) {
                     throw new Error(`sense of mouvement is not consistent with fault data. Should be LL or N or N-LL or RL or I or I-RL`)
                 }       
             } else if ( this.alphaStriaDeg === 90 ) {   // Pure dip-slip mouvement
                 // alphaStriaDeg = 90 means that the fault is normal
-                if ( this.sensMouv === SensOfMovement.I) {
+                if ( this.typeMov === TypeOfMovement.I) {
                     // Fault movement is oriented opposite to the present value of the striation angle
                     this.alphaStriaDeg = 270        // Striation values are recalculated
                     this.alphaStria = 3 * Math.PI / 2           
-                } else if ( this.sensMouv != SensOfMovement.N) {
+                } else if ( this.typeMov != TypeOfMovement.N) {
                     throw new Error(`sense of mouvement is not consistent with fault data. Should be N or I`)
                 }
             } else if (this.alphaStriaDeg < 180) {   // Strike-slip and dip slip mouvement
                 // 90 < alphaStriaDeg < 180 means that the fault is normal-right-lateral
-                if ( (this.sensMouv === SensOfMovement.LL) || (this.sensMouv === SensOfMovement.I) || (this.sensMouv === SensOfMovement.I_LL) ) {
+                if ( (this.typeMov === TypeOfMovement.LL) || (this.typeMov === TypeOfMovement.I) || (this.typeMov === TypeOfMovement.I_LL) ) {
                     this.alphaStriaDeg += 180
                     this.alphaStria += Math.PI           
-                } else if ( (this.sensMouv != SensOfMovement.RL) && (this.sensMouv != SensOfMovement.N) && (this.sensMouv === SensOfMovement.N_RL) ) {
+                } else if ( (this.typeMov != TypeOfMovement.RL) && (this.typeMov != TypeOfMovement.N) && (this.typeMov === TypeOfMovement.N_RL) ) {
                     throw new Error(`sense of mouvement is not consistent with fault data. Should be LL or I or I-LL or RL or N or N-RL`)
                 }       
             } else if ( this.alphaStriaDeg === 180 ) {   // Pure strike-slip mouvement
                 // alphaStriaDeg = 180 means that the fault is right-lateral
-                if ( this.sensMouv === SensOfMovement.LL) {
+                if ( this.typeMov === TypeOfMovement.LL) {
                     // Fault movement is oriented opposite to the present value of the striation angle
                     this.alphaStriaDeg = 0        // Striation values are recalculated
                     this.alphaStria = 0          
-                } else if ( this.sensMouv != SensOfMovement.RL) {
+                } else if ( this.typeMov != TypeOfMovement.RL) {
                     throw new Error(`sense of mouvement is not consistent with fault data. Should be RL or LL`)
                 }
             } else {  
@@ -943,7 +956,7 @@ export class FaultHelper {
 
     private createUpLiftedBlock() {
         const f = new FaultHelper({strike: 0, dipDirection: Direction.E, dip: 90}) // TODO: params in ctor
-        f.setStriation({strikeDirection: Direction.N, rake: 90, sensOfMovement: SensOfMovement.UKN})
+        f.setStriation({strikeDirection: Direction.N, rake: 90, typeOfMovement: TypeOfMovement.UND})
         /**
         * There is one particular case in which the sens of mouvement has to be defined with a different parameter:
         * A vertical plane with rake = 90.
@@ -1037,7 +1050,7 @@ export class FaultHelper {
     //          RL = Right-Lateral fault
     //          LL = Left-Lateral fault
     // Sense of mouvement: N, I, RL, LL, N-RL, N-LL, I-RL, I-LL
-    private sensMouv: SensOfMovement
+    private typeMov: TypeOfMovement
 
     // We define 2 orthonormal right-handed reference systems:
     //      S =  (X, Y, Z ) is the geographic reference frame oriented in (East, North, Up) directions.

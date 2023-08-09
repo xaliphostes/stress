@@ -1,15 +1,14 @@
 import { Matrix3x3, normalizeVector, scalarProductUnitVectors, Vector3 } from "../types"
 import { Data } from "./Data"
 import { faultStressComponents } from "../types/mechanics"
-import { FaultHelper, Direction, SensOfMovement, getDirectionFromString, 
-        directionExists, getSensOfMovementFromString, sensOfMovementExists } 
-        from "../utils/FaultHelper"
-import { DataArguments, FractureStrategy, StriatedPlaneProblemType } from "./types"
-import { DataParameters } from "./DataParameters"
-import { TensorParameters } from "../geomeca"
-import { DataDescription, DataMessages } from "./DataDescription"
-import { DataFactory } from "./Factory"
-import { isNumber, toFloat } from "../utils"
+import { FaultHelper, Direction, TypeOfMovement, getDirectionFromString, 
+        directionExists, getTypeOfMovementFromString, sensOfMovementExists
+} from "../utils/FaultHelper"
+import { Tokens, FractureStrategy, StriatedPlaneProblemType, createPlane, createStriation } from "./types"
+import { HypotheticalSolutionTensorParameters } from "../geomeca"
+import { createDataArgument, createDataStatus, DataStatus } from "./DataDescription"
+import { readStriatedFaultPlane } from "../io/DataReader"
+import { toInt } from "../utils"
 
 /**
  * @category Data
@@ -23,189 +22,26 @@ export class StriatedPlaneKin extends Data {
     protected oriented = true
     protected EPS = 1e-7
     protected nPerpStriation: Vector3
+    protected noPlane = 0
 
-    /*
-    description(): any {
-        return {
-            // Mandatory data: 
-            // 0, 1    =  Data number, data type 
-            //            StriatedPlane_kin and inheriting classes: StriatedPlaneFriction1 & StriatedPlaneFriction2
-            // ------------------------------
-            // Plane orientation : 
-            // 2, 3, 4 = Strike, dip, dip direction
-            // Striation : 
-            // 5, 6 = Rake, strike direction 
-            // 7    = Striation trend (optional **)
-            // 8    = Type of movement (when the type of movement is unknown use UKN **)
-
-            // mandatory: [2, 3, 4, 8],
-            
-            // mandatory: {
-            //     and: [2, 3, 4, 8],
-            //     or: [
-            //         [5,6],
-            //         [7]
-            //     ]
-            // },
-
-            mandatory: [
-                [2, 3, 4, 8],
-                {
-                    or: [
-                        [5,6],
-                        [7]
-                    ]
-                }
-            ],
-
-            // Optional data:
-            // 11, 12 = Deformation phase, relative weight 
-            optional: [11, 12]
-        }
-    }
-    */
-
-    /*
-    initialize(params: DataParameters[]): boolean {
-        if (Number.isNaN(params[0].strike)) {
-            throw new Error('Missing strike angle for Striated Plane')
-        }
-
-        if (Number.isNaN(params[0].dip)) {
-            throw new Error('Missing dip angle for Striated Plane')
-        }
-
-        if (params[0].dip < 90 && Number.isNaN(params[0].dipDirection)) {
-            throw new Error('Missing dip direction for Striated Plane')
-        }
-
-        // Check that nPlane and nStriation are unit vectors
-        const { nPlane, nStriation, nPerpStriation } = FaultHelper.create({
-            strike: params[0].strike, 
-            dipDirection: this.getMapDirection(params[0].dipDirection), 
-            dip: params[0].dip, 
-            sensOfMovement: this.getSensOfMovement(params[0].typeOfMovement), 
-            rake: params[0].rake, 
-            strikeDirection: this.getMapDirection(params[0].strikeDirection)
-        })
-        this.nPlane = nPlane
-        this.nStriation = nStriation
-        this.nPerpStriation = nPerpStriation
-
-        // Check orthogonality
-        const sp = scalarProductUnitVectors({U: nPlane, V: nStriation})
-        if (Math.abs(sp) >this.EPS) {
-            throw new Error(`striation is not on the fault plane. Dot product gives ${sp}`)
-        }
-
-        return true
-    }
-    */
-
-    initialize(args: DataArguments): DataMessages {
+    initialize(args: Tokens[]): DataStatus {
         const toks = args[0]
-        const result = { status: true, messages: [] }
+        const result = createDataStatus()
+        const arg = createDataArgument()
+
+        // Read parameters definning plane orientation, striation orientation and type of movement
+        const plane = createPlane()
+        const striation = createStriation()
+        readStriatedFaultPlane(arg, plane, striation, result)
         
         // -----------------------------------
 
-        const strike = toFloat(toks[2])
-        if (!DataDescription.checkRanges(strike)) {
-            DataDescription.putMessage(toks, 2, this, result)
-        }
-
-        // -----------------------------------
-
-        const dip = toFloat(toks[3])
-        if (!DataDescription.checkRanges(dip)) {
-            DataDescription.putMessage(toks, 3, this, result)
-        }
-
-        // -----------------------------------
-
-        let dipDirection = Direction.UNKOWN
-        if ( (dip !== 90) && (dip !== 0) ) {
-            // In the general case, the dip direction for non-horizontal and non-vertical planes
-            // must be defined in terms of a geographic direction: N, S, E, W, NE, SE, SW, NW
-            if (!DataDescription.checkRanges(toks[4])) {
-                DataDescription.putMessage(toks, 4, this, result)
-            }
-            else {
-                dipDirection = getDirectionFromString(toks[4])
-                if (dipDirection === Direction.UNKOWN) {
-                    throw new Error('Set dip direction for ' + toks[1] + ' ' + toks[0])
-                }
-            }
-        }
-        else {
-        }
-
-        // -----------------------------------
-
-        // The striae itself
-        let striationTrend: number = undefined
-        let rake: number = undefined
-        let strikeDirection = Direction.UNKOWN
-
-        // striation trend is provided: 7
-        if (isNumber(toks[7])) {
-            if (!DataDescription.checkRanges(toks[7])) {
-                DataDescription.putMessage(toks, 7, this, result)
-            }
-            striationTrend = toFloat(toks[7])
-        }
-        // rake and strike direction are provided: 5 & 6
-        else { 
-            if (!DataDescription.checkRanges(toks[5])) {
-                DataDescription.putMessage(toks, 5, this, result)
-            }
-            rake = toFloat(toks[5])
-
-            if (rake !== 90) {
-                // if the rake < 90° the strikeDirection must be specified
-                if (!DataDescription.checkRanges(toks[6])) {
-                    DataDescription.putMessage(toks, 6, this, result)
-                } else {
-                    strikeDirection = getDirectionFromString(toks[6])
-                }
-            }
-            else {
-                if (dip === 90) {
-                    // Special case: Vertical plane with vertical striation: dip = 90; rake = 90
-                    // In such case, the dipDirection indicates the direction of the uplifted block and it must be specified
-                    if (!DataDescription.checkRanges(toks[4])) {
-                        DataDescription.putMessage(toks, 4, this, result)
-                    }
-                    else {
-                        dipDirection = getDirectionFromString(toks[4])
-                    }
-                }
-            }
-        }
-
-        // -----------------------------------
-
-        let sensOfMovement = SensOfMovement.UKN
-        if (!DataDescription.checkRanges(toks[8])) {
-            DataDescription.putMessage(toks, 8, this, result)
-        }
-        else {
-            sensOfMovement = getSensOfMovementFromString(toks[8])
-        }
-
-        // -----------------------------------
-
         // Check that nPlane and nStriation are unit vectors
-        const { nPlane, nStriation, nPerpStriation } = FaultHelper.create({
-            strike, 
-            dipDirection, 
-            dip, 
-            sensOfMovement, 
-            rake, 
-            strikeDirection 
-        })
+        const { nPlane, nStriation, nPerpStriation } = FaultHelper.create(plane, striation)
         this.nPlane = nPlane
         this.nStriation = nStriation
         this.nPerpStriation = nPerpStriation
+        this.noPlane = toInt(toks[0])
 
         // Check orthogonality
         const sp = scalarProductUnitVectors({U: nPlane, V: nStriation})
@@ -214,7 +50,7 @@ export class StriatedPlaneKin extends Data {
         }
 
         return result
-    }
+    } 
 
     check({displ, strain, stress}:{displ: Vector3, strain: Matrix3x3, stress: Matrix3x3}): boolean {
         if (this.problemType === StriatedPlaneProblemType.DYNAMIC) {
@@ -223,7 +59,7 @@ export class StriatedPlaneKin extends Data {
         return displ !== undefined
     }
 
-    cost({displ, strain, stress}:{displ: Vector3, strain: TensorParameters, stress: TensorParameters}): number {
+    cost({displ, strain, stress}:{displ: Vector3, strain: HypotheticalSolutionTensorParameters, stress: HypotheticalSolutionTensorParameters}): number {
         if (this.problemType === StriatedPlaneProblemType.DYNAMIC) {
             // For the first implementation, use the W&B hyp.
             // let d = tensor_x_Vector({T: stress, V: this.nPlane}) // Cauchy
@@ -282,11 +118,11 @@ export class StriatedPlaneKin extends Data {
         return getDirectionFromString(s)
     }
     
-    protected getSensOfMovement(s: string): SensOfMovement {
+    protected getTypeOfMovement(s: string): TypeOfMovement {
         if (!sensOfMovementExists(s)) {
             throw new Error(`Type of movement ${s} is not defined (or incorrectly defined)`)
         }
-        return getSensOfMovementFromString(s)
+        return getTypeOfMovementFromString(s)
     }
 }
 
@@ -303,14 +139,14 @@ mapDirection.set("SE", Direction.SE)
 mapDirection.set("SW", Direction.SW)
 mapDirection.set("W", Direction.W)
 
-const mapSensOfMovement = new Map<string, SensOfMovement>()
-mapSensOfMovement.set("Inverse", SensOfMovement.I)
-mapSensOfMovement.set("Inverse - Left Lateral", SensOfMovement.I_LL)
-mapSensOfMovement.set("Inverse - Right Lateral", SensOfMovement.I_RL)
-mapSensOfMovement.set("Left Lateral", SensOfMovement.LL)
-mapSensOfMovement.set("Normal", SensOfMovement.N)
-mapSensOfMovement.set("Normal - Left Lateral", SensOfMovement.N_LL)
-mapSensOfMovement.set("Normal - Right Lateral", SensOfMovement.N_RL)
-mapSensOfMovement.set("Right Lateral", SensOfMovement.RL)
-mapSensOfMovement.set("Unknown", SensOfMovement.UKN)
+const mapSensOfMovement = new Map<string, TypeOfMovement>()
+mapSensOfMovement.set("Inverse", TypeOfMovement.I)
+mapSensOfMovement.set("Inverse - Left Lateral", TypeOfMovement.I_LL)
+mapSensOfMovement.set("Inverse - Right Lateral", TypeOfMovement.I_RL)
+mapSensOfMovement.set("Left Lateral", TypeOfMovement.LL)
+mapSensOfMovement.set("Normal", TypeOfMovement.N)
+mapSensOfMovement.set("Normal - Left Lateral", TypeOfMovement.N_LL)
+mapSensOfMovement.set("Normal - Right Lateral", TypeOfMovement.N_RL)
+mapSensOfMovement.set("Right Lateral", TypeOfMovement.RL)
+mapSensOfMovement.set("Undefined", TypeOfMovement.UND)
 */

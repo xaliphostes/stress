@@ -1,14 +1,14 @@
 import { constant_x_Vector, newVector3D, normalizedCrossProduct, scalarProductUnitVectors, SphericalCoords, Vector3 } from "../types"
-import { Direction, FaultHelper, SensOfMovement } from "./FaultHelper"
+import { Direction, FaultHelper, TypeOfMovement } from "./FaultHelper"
 
 export class CompactionShearBandsHelper {
     static create(
-        {strike, dipDirection, dip, sensOfMovement, rake, strikeDirection}:
-        {strike: number, dipDirection: Direction, dip: number, sensOfMovement: SensOfMovement, rake: number, strikeDirection: Direction}):
+        {strike, dipDirection, dip, typeOfMovement, rake, strikeDirection}:
+        {strike: number, dipDirection: Direction, dip: number, typeOfMovement: TypeOfMovement, rake: number, strikeDirection: Direction}):
         {nPlane: Vector3, nStriation: Vector3, nPerpStriation: Vector3, fault: FaultHelper}
     {
         const f = new FaultHelper({strike, dipDirection, dip})
-        f.setStriation({sensOfMovement, rake, strikeDirection})
+        f.setStriation({typeOfMovement, rake, strikeDirection})
         return {
             nPlane: f.normal,
             nStriation: f.striation,
@@ -22,8 +22,8 @@ export class CompactionShearBandsHelper {
     }
 
     compactionShearBandCheckMouvement(
-        {noPlane, nPlane, coordinates, sensOfMovement, nSigma3_Sc, nSigma2_Sc}:
-        {noPlane: number, nPlane: Vector3, coordinates: SphericalCoords, sensOfMovement: SensOfMovement, nSigma3_Sc: Vector3, nSigma2_Sc: Vector3}): void
+        {noPlane, nPlane, coordinates, typeOfMovement, nSigma3_Sc, nSigma2_Sc}:
+        {noPlane: number, nPlane: Vector3, coordinates: SphericalCoords, typeOfMovement: TypeOfMovement, nSigma3_Sc: Vector3, nSigma2_Sc: Vector3}): void
     {
         // Function calculating the striation unit vector in the local reference frame in polar coordinates from the rake
         //      The effect of fault movement on the striation is considered in function faultStriationAngle_B
@@ -90,7 +90,7 @@ export class CompactionShearBandsHelper {
         if ( strikeSlipComponent > this.EPS) {
             // In principle, the conjugated plane has a left-lateral component of movement
 
-            if (sensOfMovement === SensOfMovement.RL || sensOfMovement === SensOfMovement.N_RL || sensOfMovement === SensOfMovement.I_RL) {
+            if (typeOfMovement === TypeOfMovement.RL || typeOfMovement === TypeOfMovement.N_RL || typeOfMovement === TypeOfMovement.I_RL) {
                 // throw new Error('Sense of movement of conjugated fault ' + noPlane + ' includes a right-lateral (RL) which is not consistent with fault kenmatics')
                 throw new Error(`Sense of movement of conjugated fault ${noPlane} includes a right-lateral (RL) which is not consistent with fault kenmatics`)
             }
@@ -98,13 +98,13 @@ export class CompactionShearBandsHelper {
         else if ( strikeSlipComponent < -this.EPS) {
             // In principle, the conjugated plane has a right-lateral component of movement
 
-            if (sensOfMovement === SensOfMovement.LL || sensOfMovement === SensOfMovement.N_LL || sensOfMovement === SensOfMovement.I_LL) {
+            if (typeOfMovement === TypeOfMovement.LL || typeOfMovement === TypeOfMovement.N_LL || typeOfMovement === TypeOfMovement.I_LL) {
                 throw new Error(`Sense of movement of conjugated fault ${noPlane} includes a left-lateral (LL), which is not consistent with fault kenmatics`)
             }
         }
         else {
             // In principle, the strike-slip component of movement of the conjugated plane is negligeable
-            if (sensOfMovement !== SensOfMovement.N && sensOfMovement !== SensOfMovement.I && sensOfMovement !== SensOfMovement.UKN) {
+            if (typeOfMovement !== TypeOfMovement.N && typeOfMovement !== TypeOfMovement.I && typeOfMovement !== TypeOfMovement.UND) {
                 throw new Error(`Sense of movement of conjugated fault ${noPlane} includes a strike-slip component, which is not consistent with fault kenmatics`)
             }
         }
@@ -113,20 +113,20 @@ export class CompactionShearBandsHelper {
         if ( dipComponent > this.EPS) {
             // In principle, the conjugated plane has a normal component of movement
 
-            if (sensOfMovement === SensOfMovement.I || sensOfMovement === SensOfMovement.I_RL || sensOfMovement === SensOfMovement.I_LL) {
+            if (typeOfMovement === TypeOfMovement.I || typeOfMovement === TypeOfMovement.I_RL || typeOfMovement === TypeOfMovement.I_LL) {
                 throw new Error(`Sense of movement of conjugated fault ${noPlane} includes an inverse (I) component, which is not consistent with fault kenmatics`)
             }
         }
         else if ( dipComponent < -this.EPS) {
             // In principle, the conjugated plane has an inverse component of movement
 
-            if (sensOfMovement === SensOfMovement.N || sensOfMovement === SensOfMovement.N_RL || sensOfMovement === SensOfMovement.N_LL) {
+            if (typeOfMovement === TypeOfMovement.N || typeOfMovement === TypeOfMovement.N_RL || typeOfMovement === TypeOfMovement.N_LL) {
                 throw new Error(`Sense of movement of conjugated fault ${noPlane} includes a normal component, which is not consistent with fault kenmatics`)
             }
         }
         else {
             // In principle, the dip component of movement of the conjugated plane is negligeable
-            if (sensOfMovement !== SensOfMovement.RL && sensOfMovement !== SensOfMovement.LL && sensOfMovement !== SensOfMovement.UKN) {
+            if (typeOfMovement !== TypeOfMovement.RL && typeOfMovement !== TypeOfMovement.LL && typeOfMovement !== TypeOfMovement.UND) {
                 throw new Error(`Sense of movement of conjugated fault ${noPlane} includes an dip component (I or N), which is not consistent with fault kenmatics`)
             }
         }

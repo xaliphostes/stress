@@ -1,5 +1,5 @@
 import { Direction } from "readline"
-import { SensOfMovement } from "../utils"
+import { TypeOfMovement } from "../utils"
 
 // export type DataParameters = {
 //     dataNumber?: number,

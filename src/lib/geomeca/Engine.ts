@@ -5,7 +5,7 @@ import { HypotheticalSolutionTensorParameters } from "./HypotheticalSolutionTens
  * 
  */
 export interface Engine {
-    setHStress(hRot: Matrix3x3, stressRatio: number): void
+    setHypotheticalStress(hRot: Matrix3x3, stressRatio: number): void
     
     Hrot(): Matrix3x3
     stressRatio(): number

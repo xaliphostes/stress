@@ -48,9 +48,9 @@ b) The sense of mouvement is indicated for each fault plane:
       Strike-slip component:
           RL = Right-Lateral fault
           LL = Left-Lateral fault
-      Unknown (the most compatible type of movement is selected **): 
-        UKN
-    Sense of mouvement: N, I, RL, LL, N-RL, N-LL, I-RL, I-LL, UKN
+      Undefined (the most compatible type of movement is selected **): 
+        UND
+    Sense of mouvement: N, I, RL, LL, N-RL, N-LL, I-RL, I-LL, UND
 
 * @category Data
 */

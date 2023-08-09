@@ -1,4 +1,5 @@
 import { Point3D, Vector3 } from "../types"
+import { Direction, TypeOfMovement } from "../utils"
 
 /**
  * @category Data
@@ -32,8 +33,62 @@ export enum StriatedPlaneProblemType {
     KINEMATIC
 }
 
-export type Line = string
+// export type Line = string
 
 export type Tokens = string[]
 
-export type DataArguments = Tokens[]
+// export type DataArguments = Tokens[]
+
+export type Plane = {
+    strike: number,
+    dip: number,
+    dipDirection: Direction
+}
+export function createPlane(): Plane {
+    return {
+        strike: 0,
+        dip: 0,
+        dipDirection: Direction.UND
+    }
+}
+
+export type Striation = {
+    rake: number,
+    strikeDirection: Direction,
+    trend: number,
+    typeOfMovement: TypeOfMovement
+}
+export function createStriation(): Striation {
+    return {
+        rake: 0,
+        strikeDirection: Direction.UND,
+        trend: 0,
+        typeOfMovement: TypeOfMovement.UND
+    }
+}
+
+export type Line = {
+    trend: number,
+    plunge: number
+}
+
+export type RuptureFrictionAngles = {
+    isDefined: boolean,
+    angleMin: number,
+    angleMax: number
+}
+export function createRuptureFrictionAngles(): RuptureFrictionAngles {
+    return {
+        isDefined: false,
+        angleMin: 0,
+        angleMax: 0
+    }
+}
+
+/**
+ * 
+ */
+export type Sigma1_nPlaneAngle = RuptureFrictionAngles
+export function createSigma1_nPlaneAngle() {
+    return createRuptureFrictionAngles()
+}

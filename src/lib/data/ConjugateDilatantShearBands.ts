@@ -1,7 +1,7 @@
 import { Matrix3x3, Vector3 } from "../types"
 import { FractureStrategy, StriatedPlaneProblemType } from "./types"
 import { ConjugateFaults } from "./ConjugateFaults"
-import { ConjugatePlanesHelper, getDirectionFromString, getSensOfMovementFromString } from "../utils"
+import { ConjugatePlanesHelper, getDirectionFromString, getTypeOfMovementFromString } from "../utils"
 import { DataParameters } from "./DataParameters"
 
 /** 
@@ -15,7 +15,7 @@ import { DataParameters } from "./DataParameters"
     The compressional axis Sigma 1 is located in the plane of movement and bisects the acute angle (<= 90°) between planes
     The extensional axis Sigma 3 is located in the plane of movement and bisects the obtuse angle (>= 90°) between planes
 
- conjugate dilatant shear bands are defined in the input file in TWO CONSECUTIVE LINES.
+ Conjugate dilatant shear bands are defined in the input file in TWO CONSECUTIVE LINES.
  Each line specifies all the available data for each conjugate dilatant shear band.
 
  Several data sets defining two conjugate dilatant shear bands are considered:
@@ -46,133 +46,12 @@ import { DataParameters } from "./DataParameters"
     can be defined by one axis that is contained in the plane. 
     However, this case would require a special format in the input file, which is inconvenient...
 
+    @note For stress tensor calculation, conjugate dilatant shear bands are equivalent to conjugate faults:
+    They are neoformed structures resulting from inelastic deformation combining dilation and shear (i.e. the frictional/cohesive yield surface)
+    They are located in the left (extensional) half of the Mohr-Circle <Sigma 3, Sigma 1>
+    The initialize, check and cost methods are inherited from Conjugate Faults
+
     @category Data
  */
 export class ConjugateDilatantShearBands extends ConjugateFaults {
-// For stress tensor calculation, conjugate dilatant shear bands are equivalent to conjugate faults:
-//      They are neoformed structures resulting from inelastic deformation combining dilation and shear (i.e. the frictional/cohesive yield surface)
-//      They are located in the left (extensional) half of the Mohr-Circle <Sigma 3, Sigma 1>
-// The initialize, check and cost methods are inherited from Conjugate Faults
-
-    // protected nPlane1: Vector3 = undefined
-    // protected nPlane2: Vector3 = undefined
-    // protected nStriation1: Vector3 = undefined
-    // protected nStriation2: Vector3 = undefined
-
-    // protected pos: Vector3 = undefined
-    // protected problemType = StriatedPlaneProblemType.DYNAMIC
-    // protected strategy = FractureStrategy.ANGLE
-    // protected oriented = true
-    // protected EPS = 1e-7
-    // protected nPerpStriation: Vector3
-
-    // protected plane1: Boolean = undefined
-    // protected plane2: Boolean = undefined
-
-    // // Principal directions of the data
-    // protected nSigma1_Sm: Vector3 = undefined
-    // protected nSigma2_Sm: Vector3 = undefined
-    // protected nSigma3_Sm: Vector3 = undefined
-    // protected Mrot: Matrix3x3 = undefined
-
-    // protected cf1: any = undefined
-    // protected cf2: any = undefined
-    // protected params1: any = undefined
-    // protected params2: any = undefined
-
-    // protected striation1 = false
-    // protected striation2 = false
-
-    //protected nSigma1_rot: Vector3 = undefined
-    //protected nSigma3_rot: Vector3 = undefined
-
-    // params1 and params2 contain data defining conjugate dilatant shear bands 1 and 2
-    // we have replaced azimuth by strike
-
-    // nbLinkedData(): number {
-    //     return 2
-    // }
-
-    /*
-    initialize(params: DataParameters[]): boolean {
-
-        let nPlane2Neg: Vector3
-
-        if (Number.isNaN(params[0].strike)) {
-            throw new Error('Missing strike angle for conjugate dilatant shear band '+ params[0].noPlane)
-        }
-
-        if (Number.isNaN(params[0].dip)) {
-            throw new Error('Missing dip angle for conjugate dilatant shear band ' + params[0].noPlane)
-        }
-
-        if (params[0].dip < 90 && params[0].dipDirection === undefined ) {
-            throw new Error('Missing dip direction for conjugate dilatant shear band '+ params[0].noPlane)
-        }
-
-        if (Number.isNaN(params[1].strike)) {
-            throw new Error('Missing strike angle for conjugate dilatant shear band '+ params[1].noPlane)
-        }
-
-        if (Number.isNaN(params[1].dip)) {
-            throw new Error('Missing dip angle for conjugate dilatant shear band ' + params[1].noPlane)
-        }
-
-        if (params[1].dip < 90 && params[1].dipDirection === undefined ) {
-            throw new Error('Missing dip direction for conjugate dilatant shear band '+ params[1].noPlane)
-        }
-
-        // if (this.nPlane1 === this.nPlane2 || this.nPlane1 === constant_x_Vector({k: -1, V: this.nPlane2}) ) {
-        //     throw new Error('The two conjugate dilatant shear bands ' + params.noPlane1 + ' and ' + params.noPlane2 + ' are identical')
-        // }
-
-        // Check that nPlane and nStriation are unit vectors ***
-        this.params1 = {
-            noPlane: params[0].noPlane,
-            strike: params[0].strike,
-            dipDirection: getDirectionFromString(params[0].dipDirection),
-            dip: params[0].dip,
-            sensOfMovement: getSensOfMovementFromString(params[0].typeOfMovement),
-            rake: params[0].rake,
-            strikeDirection: getDirectionFromString(params[0].strikeDirection)
-        }
-        this.cf1 = ConjugatePlanesHelper.create(this.params1)
-
-        // conjugate dilatant shear band 1 is defined: (strike1, dip1, dipDirection1)
-        this.plane1 = true
-        // Calculate the unit vector normal to plane 1: nPlane1
-        this.nPlane1 = this.cf1.nPlane
-
-        // -----------------------------------------
-
-        this.params2 = {
-            noPlane: params[1].noPlane,
-            strike: params[1].strike,
-            dipDirection: getDirectionFromString(params[1].dipDirection),
-            dip: params[1].dip,
-            sensOfMovement: getSensOfMovementFromString(params[1].typeOfMovement),
-            rake: params[1].rake,
-            strikeDirection: getDirectionFromString(params[1].strikeDirection)
-        }
-        this.cf2 = ConjugatePlanesHelper.create(this.params2)
-        // conjugate dilatant shear band 1 is defined: (strike1, dip1, dipDirection1)
-        this.plane2 = true
-        // Calculate the unit vector normal to plane 1: nPlane1
-        this.nPlane2 = this.cf2.nPlane
-
-
-        /** this.nStriation = nStriation
-        // this.nPerpStriation = nPerpStriation
-
-        // Check orthogonality
-        // const sp = scalarProductUnitVectors({U: nPlane, V: nStriation})
-        //*if (Math.abs(sp) >this.EPS) {
-            throw new Error(`striation is not on the fault plane. Dot product gives ${sp}`)
-        } 
-
-        this.checkConjugatePlanes()
-
-        return true
-    }
-    */
 }

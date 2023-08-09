@@ -1,14 +1,15 @@
-import { add_Vectors, Matrix3x3, multiplyTensors, 
-        normalizedCrossProduct, normalizeVector, 
-        scalarProductUnitVectors, transposeTensor, Vector3 
-    } from "../types"
+import {
+    add_Vectors, Matrix3x3, multiplyTensors,
+    normalizedCrossProduct, normalizeVector,
+    transposeTensor, Vector3
+} from "../types"
 import { Data } from "./Data"
-import { DataArguments, FractureStrategy, StriatedPlaneProblemType, Tokens } from "./types"
-import { getDirectionFromString, getSensOfMovementFromString, ConjugatePlanesHelper, toFloat, Direction, SensOfMovement, isNumber, toInt } from "../utils"
+import { FractureStrategy, StriatedPlaneProblemType, Tokens } from "./types"
+import { ConjugatePlanesHelper, Direction, toInt } from "../utils"
 import { minRotAngleRotationTensor } from "../types/math"
-import { DataParameters } from "./DataParameters"
-import { TensorParameters } from "../geomeca"
-import { DataArgument, DataDescription, DataMessages } from "./DataDescription"
+import { createDataArgument, createDataStatus, DataArgument, DataDescription, DataStatus } from "./DataDescription"
+import { DataFactory } from "./Factory"
+import { HypotheticalSolutionTensorParameters } from "../geomeca/HypotheticalSolutionTensorParameters"
 
 /** 
  Conjugate Fault Planes: 
@@ -33,7 +34,7 @@ import { DataArgument, DataDescription, DataMessages } from "./DataDescription"
         Fault dip: [0, 90]
         Dip direction: (N, E, S, W) or a combination of two directions (NE, SE, SW, NW).
     b) The rake angles defining the slip vectors are NOT defined
-    c) The type of mouvement for each conjugate fault plane is an OPTIONAL parameter (i.e. it may be unknown - UKN)
+    c) The type of mouvement for each conjugate fault plane is an OPTIONAL parameter (i.e. it may be undefined - UND)
        However, it is highly recommended to include the type of mouvment for verification purposes, 
             indicating both the dip-slip and strike-slip compoenents, when possible. 
           Dip-slip component:
@@ -42,7 +43,7 @@ import { DataArgument, DataDescription, DataMessages } from "./DataDescription"
           Strike-slip componenet:
               RL = Right-Lateral fault
               LL = Left-Lateral fault
-        Type of mouvement: N, I, RL, LL, N-RL, N-LL, I-RL, I-LL; UKN 
+        Type of mouvement: N, I, RL, LL, N-RL, N-LL, I-RL, I-LL; UND 
 2) Special Case 1: The geometry, the striation (i.e., the rake), and the kinematics of one or both conjugate fault planes are defined.
         This case is NOT considered as the striations define redundant information for constraining the stress tensor orientation.
         Conjugate fault planes with striations can be considered separately as Neoformed Striated Planes for which the friction angle is known
@@ -87,128 +88,9 @@ export class ConjugateFaults extends Data {
         return 2
     }
 
-    /*
-    initialize(params: DataParameters[]): boolean {
+    initialize(args: Tokens[]): DataStatus {
+        const result = createDataStatus()
 
-        let nPlane2Neg: Vector3
-
-        if (Number.isNaN(params[0].strike)) {
-            throw new Error('Missing strike angle for conjugate fault plane '+ params[0].noPlane)
-        }
-
-        if (Number.isNaN(params[0].dip)) {
-            throw new Error('Missing dip angle for conjugate fault plane ' + params[0].noPlane)
-        }
-
-        if (params[0].dip < 90 && params[0].dipDirection === undefined ) {
-            throw new Error('Missing dip direction for conjugate fault plane '+ params[0].noPlane)
-        }
-
-        if (Number.isNaN(params[1].strike)) {
-            throw new Error('Missing strike angle for conjugate fault plane '+ params[1].noPlane)
-        }
-
-        if (Number.isNaN(params[1].dip)) {
-            throw new Error('Missing dip angle for conjugate fault plane ' + params[1].noPlane)
-        }
-
-        if (params[1].dip < 90 && params[1].dipDirection === undefined ) {
-            throw new Error('Missing dip direction for conjugate fault plane '+ params[1].noPlane)
-        }
-
-        // if (this.nPlane1 === this.nPlane2 || this.nPlane1 === constant_x_Vector({k: -1, V: this.nPlane2}) ) {
-        //     throw new Error('The two conjugate fault planes ' + params.noPlane1 + ' and ' + params.noPlane2 + ' are identical')
-        // }
-
-        // Check that nPlane and nStriation are unit vectors ***
-        this.params1 = {
-            noPlane: params[0].noPlane,
-            strike: params[0].strike,
-            dipDirection: getDirectionFromString(params[0].dipDirection),
-            dip: params[0].dip,
-            sensOfMovement: getSensOfMovementFromString(params[0].typeOfMovement),
-            rake: params[0].rake,
-            strikeDirection: getDirectionFromString(params[0].strikeDirection)
-        }
-        this.cf1 = ConjugatePlanesHelper.create(this.params1)
-
-        // conjugate fault plane 1 is defined: (strike1, dip1, dipDirection1)
-        this.plane1 = true
-        // Calculate the unit vector normal to plane 1: nPlane1
-        this.nPlane1 = this.cf1.nPlane
-
-        // -----------------------------------------
-
-        this.params2 = {
-            noPlane: params[1].noPlane,
-            strike: params[1].strike,
-            dipDirection: getDirectionFromString(params[1].dipDirection),
-            dip: params[1].dip,
-            sensOfMovement: getSensOfMovementFromString(params[1].typeOfMovement),
-            rake: params[1].rake,
-            strikeDirection: getDirectionFromString(params[1].strikeDirection)
-        }
-        this.cf2 = ConjugatePlanesHelper.create(this.params2)
-        // conjugate fault plane 1 is defined: (strike1, dip1, dipDirection1)
-        this.plane2 = true
-        // Calculate the unit vector normal to plane 1: nPlane1
-        this.nPlane2 = this.cf2.nPlane
-
-
-        /** this.nStriation = nStriation
-        // this.nPerpStriation = nPerpStriation
-
-        
-
-         c
-
-        return true
-    }
-    */
-
-     performOneDataLine(toks: Tokens, result: DataMessages): any {
-        const arg: DataArgument = {
-            toks,
-            index: 0,
-            data: this,
-            result,
-            setIndex(i: number) {
-                this.index=i;
-                return this
-            }
-        }
-
-        const strike = DataDescription.getParameter(arg.setIndex(2))
-        
-        const dip = DataDescription.getParameter(arg.setIndex(3))
-
-        // -----------------------------------
-
-        let dipDirection = Direction.UNKOWN
-        if ( (dip !== 90) && (dip !== 0) ) {
-            // In the general case, the dip direction for non-horizontal and non-vertical planes
-            // must be defined in terms of a geographic direction: N, S, E, W, NE, SE, SW, NW
-            dipDirection = DataDescription.getParameter(arg.setIndex(4))
-        }
-
-        // -----------------------------------
-
-        const sensOfMovement = DataDescription.getParameter(arg.setIndex(8))
-
-        // -----------------------------------
-
-        return {
-            noPlane: toInt(toks[0]),
-            strike,
-            dipDirection,
-            dip,
-            sensOfMovement
-        }
-    }
-
-    initialize(args: DataArguments): DataMessages {
-        const result = { status: true, messages: [] }
-        
         this.params1 = this.performOneDataLine(args[0], result)
         this.cf1 = ConjugatePlanesHelper.create(this.params1)
         // conjugate fault plane 1 is defined: (strike, dip, dipDirection)
@@ -236,8 +118,7 @@ export class ConjugateFaults extends Data {
     }
 
     cost({ displ, strain, stress }:
-        { displ?: Vector3, strain?: TensorParameters, stress?: TensorParameters }): number
-    {
+        { displ?: Vector3, strain?: HypotheticalSolutionTensorParameters, stress?: HypotheticalSolutionTensorParameters }): number {
         if (this.problemType === StriatedPlaneProblemType.DYNAMIC) {
             // The cost function uses the rotation tensor Mrot from reference system S to Sm, calculated in method checkCompactionShearBands
 
@@ -261,7 +142,7 @@ export class ConjugateFaults extends Data {
 
             // The rotation tensor MrotHTrot between systems Sm and Sh (Sr or Sw) is such that: Vm = MrotHTrot . Vh (Vh = Vr or Vh = Vw), 
             // where MrotHTrot = Mrot . HTrot (HTrot = Hrot transposed):
-            const MrotHTrot = multiplyTensors({A: this.Mrot, B: transposeTensor(stress.Hrot)})
+            const MrotHTrot = multiplyTensors({ A: this.Mrot, B: transposeTensor(stress.Hrot) })
 
             // The angle of rotation associated to tensor MrotHTrot is defined by the trace tr(MrotHTrot), according to the relation:
             //      tr(MrotHTrot) = 1 + 2 cos(theta)
@@ -271,122 +152,46 @@ export class ConjugateFaults extends Data {
         }
     }
 
-    /*
-    protected checkConjugatePlanes(): void {
+    protected performOneDataLine(toks: Tokens, result: DataStatus): any {
+        const arg: DataArgument = createDataArgument()
 
-        // const f = ConjugatedFaults.create({})
-        // return f.
+        const strike = DataDescription.getParameter(arg.setIndex(2))
 
-        if (this.plane1 && this.plane2) {
-            // The first and second conjugate planes are defined (strike1, dip1 and dipDirection1) and (strike2, dip2 and dipDirection2)
+        const dip = DataDescription.getParameter(arg.setIndex(3))
 
-            if ( Number.isNaN(this.params1.rake) && Number.isNaN(this.params1.striationTrend) ) {
-                this.striation1 = false
+        // -----------------------------------
+
+        const dipDirection = DataDescription.getParameter(arg.setIndex(4))
+
+        if (dip !== 0 && dip !== 90) {
+            // General case: the plane is neither horizontal nor vertical 
+
+            if (dipDirection === Direction.UND) {
+                // For non-horizontal and non-vertical planes the dip direction must be defined in terms of a geographic direction: N, S, E, W, NE, SE, SW, NW
+                result.status = false
+                result.messages.push(`Data number ${toks[0]}, column 4: parameter for ${DataFactory.name(this)}, please set the dip direction in terms of a geographic direction`)
             }
-            if ( Number.isNaN(this.params2.rake) && Number.isNaN(this.params2.striationTrend) ) {
-                this.striation2 = false
-            }
+        } else if (dipDirection !== Direction.UND) {
+            // For horizontal and vertical planes the dip direction is undefined (UND) 
+            result.status = false
+            result.messages.push(`Data number ${toks[0]}, column 4: parameter for ${DataFactory.name(this)}, for a horizontal or vertical plane please set the dip direction as undefined (UND)`)
+        }
 
-            if (!this.striation1 && !this.striation2) {
-                // Case 1: general case
-                // The striations are not defined for the conjugate planes 1 and 2
+        // -----------------------------------
 
-                // In principle we have already checked that the two conjugate planes are different
-                // Calculate the unit vector parellel to Sigma 2, which is perpendicular to nPlane1 and nPlane2:
-                this.nSigma2_Sm = normalizedCrossProduct( {U: this.nPlane1, V: this.nPlane2} )
+        const typeOfMovement = DataDescription.getParameter(arg.setIndex(8))
 
-                // Calculate the two normalized stress axes (Sigma 1 and Sigma 3) that bisect the angles between the conjugate planes
-                // angle_nPlane1_nPlane2 in interval (0,PI)
-                const angle_nPlane1_nPlane2 = Math.acos(scalarProductUnitVectors( {U: this.nPlane1, V: this.nPlane2} ))
+        // -----------------------------------
 
-                if (Math.abs(angle_nPlane1_nPlane2 - Math.PI / 2) > this.EPS) {
-
-                    // The conjugate planes are not perpendicular to each other
-
-                    if (angle_nPlane1_nPlane2 < Math.PI / 2) {
-                        // The angle between the 2 normals < PI/2:
-                        // Sigma 1 and Sigma 3 are located in the plane generated by nPlane1 and nPlane2  (normal unit vectors point upward)
-                        // In principle Sigma 3 bisects the acute angle (< 90°) between the normal vectors of the conjugate planes 
-                        this.calculateSigma1_Sigma3_AcuteAngleNormals_CF_CDSB()
-
-                    } else {
-                        // The angle between the 2 normals > PI/2:
-                        // In principle Sigma 1 bisects the obtuse angle (> 90°) between the normal vectors of the conjugate planes 
-                        this.calculateSigma1_Sigma3_ObtuseAngleNormals_CF_CDSB()
-                    }
-
-                    // ****** let (coordinates1.phi, coordinates1.theta) and (coordinates2.phi, coordinates2.theta) be the spherical coords
-                    // of conjugate plaes 1 and 2 in the geographic reference system: S = (X,Y,Z) = (E,N,Up)
-                    // This requires using method faultSphericalCoords in class fault
-                    // Check that the sense of mouvement is consistent with the orientation of stress axes***
-                    if (this.params1.sensOfMovement !== 'UKN') {
-                        // The sense of movement is defined for conjugate plane 1 (UKN = unknown)
-                        // Check consitency of movement 
-                        this.cf1.conjugatePlaneCheckMouvement({
-                            noPlane: this.params1.noPlane,
-                            nPlane: this.nPlane1, 
-                            coordinates: this.cf1.fault.sphericalCoords,
-                            nStriation: this.cf1.fault.striation, 
-                            sensOfMovement: this.params1.sens_of_movement, 
-                            nSigma3_Sm: this.nSigma3_Sm, 
-                            nSigma2_Sm: this.nSigma2_Sm
-                        })
-                    }
-                    if (this.params2.sensOfMovement !== 'UKN') {
-                        // The sense of movement is defined for conjugate plane 2
-                        // Check consitency of movement
-                        this.cf2.conjugatePlaneCheckMouvement({
-                            noPlane: this.params2.noPlane,
-                            nPlane: this.nPlane2, 
-                            coordinates: this.cf2.fault.sphericalCoords,
-                            nStriation: this.cf2.fault.striation, 
-                            sensOfMovement: this.params2.sens_of_movement, 
-                            nSigma3_Sm: this.nSigma3_Sm, 
-                            nSigma2_Sm: this.nSigma2_Sm
-                        })
-                    }
-
-                } else {
-                    // Special case:
-                    // The angle between the 2 normals is approximately equal to PI/2:
-                    // In this situation, the orientation of Sigma 1 and Sigma 3 can be permuted.
-                    // The sense of mouvement of at least one conjugate fault plane must be known in order to define the orientation of the stress axes
-                    this.consistencyKinematicsPerpendicularPlanes()
-                }
-
-                // We define 2 orthonormal right-handed reference systems:
-                //      S =  (X, Y, Z ) is the geographic reference frame oriented in (East, North, Up) directions.
-                //      Sm = (Xm,Ym,Zm) is the principal stress reference frame, parallel to the stress axes obtained form the conjugate faults (sigma1_Sm, sigma3_Sm, sigma2_Sm);
-                //          The letter 'm' stands for micro/meso structure
-
-                // Calculate transformation matrix Mrot from reference system S to Sm, such that (the letter M stands for micro/meso structure):
-                //      Vm = Mrot V
-                // where V and Vm are corresponding vectors in reference systems S and Sm
-
-                // Rotation tensor Mrot is defined such that:
-                // lines 1, 2, and 3 are defined by unit vectors nSigma1_Sm, nSigma3_Sm, and nSigma2_Sm, in agreement with reference system Sm = (Xm,Ym,Zm)
-                this.Mrot = [
-                    [this.nSigma1_Sm[0], this.nSigma1_Sm[1], this.nSigma1_Sm[2]],
-                    [this.nSigma3_Sm[0], this.nSigma3_Sm[1], this.nSigma3_Sm[2]],
-                    [this.nSigma2_Sm[0], this.nSigma2_Sm[1], this.nSigma2_Sm[2]]
-                ] 
-            } else {
-                // The striations on one are both conjugate fault planes are defined (rake, strike direction, and type of movement)
-                // 
-
-            }
-
-        } else if (this.plane1 || this.plane2) {
-            // One of the two conjugate fault planes is defined while the other is not
-            // In principle the second plane can be calculated using the striation of the first plane and a line passing by the second plane
-            // However, this case is rather unusual.
-        } else {
-            // The two conjugate fault planes are not defined
-            throw new Error('conjugate faults '+ this.params1.noPlane + ' and ' + this.params2.noPlane + ' are not defined (strike, dip and dip direction')
+        return {
+            noPlane: toInt(toks[0]),
+            strike,
+            dipDirection,
+            dip,
+            typeOfMovement
         }
     }
-    */
- 
+
     protected consistencyKinematicsPerpendicularPlanes(): void {
         // The angle between the 2 normals is approximately equal to PI/2:
         // In this situation, the orientation of Sigma 1 and Sigma 3 can be permuted.
@@ -396,40 +201,40 @@ export class ConjugateFaults extends Data {
         // typeMovementConsistency: boolean indicating if the current stress axes orientations are consistent or not with type of movement
         let typeMovementConsistency1, typeMovementConsistency2 = true
 
-        if ( this.params1.sensOfMovement !== 'UKN' || this.params2.sensOfMovement !== 'UKN' ) {
+        if (this.params1.typeOfMovement !== 'UND' || this.params2.typeOfMovement !== 'UND') {
             // Find orientations of Sigma 1, Sigma 2 and Sigma 3, and check for consistency of mouvement if both movements are known.
 
             // Suppose that the bisecting line nSigma3_Sm is defined by the sum of normal vectors nPlane1 + nPlane2
             this.calculateSigma1_Sigma3_AcuteAngleNormals_CF_CDSB()
 
-            if (this.params1.sensOfMovement !== 'UKN') {
-                // The sense of movement is defined for conjugate plane 1 (UKN = unknown)
+            if (this.params1.typeOfMovement !== 'UND') {
+                // The sense of movement is defined for conjugate plane 1 (UND = undefined)
                 // Check consitency of movement 
-                typeMovementConsistency1  = this.cf1.perpendicularPlanesCheckmovement({
+                typeMovementConsistency1 = this.cf1.perpendicularPlanesCheckmovement({
                     noPlane: this.params1.noPlane,
-                    nPlane: this.nPlane1, 
+                    nPlane: this.nPlane1,
                     coordinates: this.cf1.fault.sphericalCoords,
-                    nStriation: this.cf1.fault.striation, 
-                    sensOfMovement: this.params1.sens_of_movement, 
-                    nSigma3_Sm: this.nSigma3_Sm, 
+                    nStriation: this.cf1.fault.striation,
+                    typeOfMovement: this.params1.type_of_movement,
+                    nSigma3_Sm: this.nSigma3_Sm,
                     nSigma2_Sm: this.nSigma2_Sm
                 })
             }
-            if (this.params2.sensOfMovement !== 'UKN') {
+            if (this.params2.typeOfMovement !== 'UND') {
                 // The sense of movement is defined for conjugate plane 2
                 // Check consitency of movement
-                typeMovementConsistency2  = this.cf2.perpendicularPlanesCheckmovement({
+                typeMovementConsistency2 = this.cf2.perpendicularPlanesCheckmovement({
                     noPlane: this.params2.noPlane,
-                    nPlane: this.nPlane2, 
+                    nPlane: this.nPlane2,
                     coordinates: this.cf2.fault.sphericalCoords,
-                    nStriation: this.cf2.fault.striation, 
-                    sensOfMovement: this.params2.sens_of_movement, 
-                    nSigma3_Sm: this.nSigma3_Sm, 
+                    nStriation: this.cf2.fault.striation,
+                    typeOfMovement: this.params2.type_of_movement,
+                    nSigma3_Sm: this.nSigma3_Sm,
                     nSigma2_Sm: this.nSigma2_Sm
                 })
             }
 
-            if ( !typeMovementConsistency1 || !typeMovementConsistency2 ) {
+            if (!typeMovementConsistency1 || !typeMovementConsistency2) {
                 // The type of movement is NOT consistent with the stress axes orientations assumed in:
                 //      calculateSigma1_Sigma3_AcuteAngleNormals_CF_CDSB
                 // for at least one of the conjugate planes
@@ -440,41 +245,41 @@ export class ConjugateFaults extends Data {
                 typeMovementConsistency1 = true
                 typeMovementConsistency2 = true
 
-                if (this.params1.sensOfMovement !== 'UKN') {
-                    // The sense of movement is defined for conjugate plane 1 (UKN = unknown)
+                if (this.params1.typeOfMovement !== 'UND') {
+                    // The sense of movement is defined for conjugate plane 1 (UND = undefined)
                     // Check consitency of movement 
-                    typeMovementConsistency1  = this.cf1.perpendicularPlanesCheckmovement({
+                    typeMovementConsistency1 = this.cf1.perpendicularPlanesCheckmovement({
                         noPlane: this.params1.noPlane,
-                        nPlane: this.nPlane1, 
+                        nPlane: this.nPlane1,
                         coordinates: this.cf1.fault.sphericalCoords,
-                        nStriation: this.cf1.fault.striation, 
-                        sensOfMovement: this.params1.sens_of_movement, 
-                        nSigma3_Sm: this.nSigma3_Sm, 
+                        nStriation: this.cf1.fault.striation,
+                        typeOfMovement: this.params1.type_of_movement,
+                        nSigma3_Sm: this.nSigma3_Sm,
                         nSigma2_Sm: this.nSigma2_Sm
                     })
                 }
-                if (this.params2.sensOfMovement !== 'UKN') {
+                if (this.params2.typeOfMovement !== 'UND') {
                     // The sense of movement is defined for conjugate plane 2
                     // Check consitency of movement
-                    typeMovementConsistency2  = this.cf2.perpendicularPlanesCheckmovement({
+                    typeMovementConsistency2 = this.cf2.perpendicularPlanesCheckmovement({
                         noPlane: this.params2.noPlane,
-                        nPlane: this.nPlane2, 
+                        nPlane: this.nPlane2,
                         coordinates: this.cf2.fault.sphericalCoords,
-                        nStriation: this.cf2.fault.striation, 
-                        sensOfMovement: this.params2.sens_of_movement, 
-                        nSigma3_Sm: this.nSigma3_Sm, 
+                        nStriation: this.cf2.fault.striation,
+                        typeOfMovement: this.params2.type_of_movement,
+                        nSigma3_Sm: this.nSigma3_Sm,
                         nSigma2_Sm: this.nSigma2_Sm
                     })
                 }
 
-                if ( !typeMovementConsistency1 || !typeMovementConsistency2 ) {
+                if (!typeMovementConsistency1 || !typeMovementConsistency2) {
                     throw (`Conjugate planes ${this.params2.noPlane} and ${this.params2.noPlane} are perpendicular`)
                     throw new Error(`Sense of movement of at least one of the perpendicular planes is not consistent with fault kinematics`)
-                } 
+                }
             }
 
         } else {
-            const msg = 'conjugate planes '+ this.params1.noPlane+ ' and '+ this.params2.noPlane+ ' are perpendicular. Please indicate type of movement for at least one plane'
+            const msg = 'conjugate planes ' + this.params1.noPlane + ' and ' + this.params2.noPlane + ' are perpendicular. Please indicate type of movement for at least one plane'
             throw new Error(msg)
         }
     }
@@ -487,14 +292,14 @@ export class ConjugateFaults extends Data {
 
         // In principle Sigma 3 bisects the acute angle (< 90°) between the normal vectors of the conjugate planes 
         // The bisecting line nSigma3_Sm is defined by the sum of normal vectors nPlane1 + nPlane2
-        this.nSigma3_Sm = add_Vectors( {U: this.nPlane1, V: this.nPlane2} )
+        this.nSigma3_Sm = add_Vectors({ U: this.nPlane1, V: this.nPlane2 })
         // note that nSigma3_Sm is always located in the compressional quadrant of the outward hemisphere relative to each of the planes
         // i.e., the scalar product nPlane1 . nSigma3_Sm > 0
         this.nSigma3_Sm = normalizeVector(this.nSigma3_Sm)
 
         // nSigma1_Sm = nSigma3_Sm x nSigma2_Sm
         // The right-handed reference system is defined consistently with the convention for stress axes orientations (sigma 1, sigma 3, sigma 2)
-        this.nSigma1_Sm = normalizedCrossProduct( {U: this.nSigma3_Sm, V: this.nSigma2_Sm} )
+        this.nSigma1_Sm = normalizedCrossProduct({ U: this.nSigma3_Sm, V: this.nSigma2_Sm })
     }
 
     protected calculateSigma1_Sigma3_ObtuseAngleNormals_CF_CDSB() {
@@ -505,11 +310,11 @@ export class ConjugateFaults extends Data {
 
         // In principle Sigma 1 bisects the obtuse angle (> 90°) between the normal vectors of the conjugate planes 
         // The bisecting line nSigma1_Sm is defined by the sum of normal vectors nPlane1 + nPlane2
-        this.nSigma1_Sm = add_Vectors( {U: this.nPlane1, V: this.nPlane2} )
+        this.nSigma1_Sm = add_Vectors({ U: this.nPlane1, V: this.nPlane2 })
         this.nSigma1_Sm = normalizeVector(this.nSigma1_Sm)
 
         // nSigma3_Sm = nSigma2_Sm x nSigma1_Sm
         // The right-handed reference system is defined consistently with the convention for stress axes orientations (sigma 1, sigma 3, sigma 2)
-        this.nSigma3_Sm = normalizedCrossProduct( {U: this.nSigma2_Sm, V:this.nSigma1_Sm} )
+        this.nSigma3_Sm = normalizedCrossProduct({ U: this.nSigma2_Sm, V: this.nSigma1_Sm })
     }
 }

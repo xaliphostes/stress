@@ -119,7 +119,7 @@ export class MonteCarlo implements SearchMethod {
             //     return previous + current.cost({stress: STdelta, rot: Wrot}
             // )} , 0) / data.length
 
-            this.engine.setHStress(Wrot, stressRatio)
+            this.engine.setHypotheticalStress(Wrot, stressRatio)
 
             const misfit = data.reduce( (previous, current) => {
                 return previous + current.cost({stress: this.engine.stress(current.position)})

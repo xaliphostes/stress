@@ -1,10 +1,9 @@
 import { StyloliteInterface } from "./StyloliteInterface"
 import { SphericalCoords } from "../types/SphericalCoords"
-import { DataParameters } from "./DataParameters"
 import { trendPlunge2unitAxis } from "../types"
-import { DataDescription, DataMessages } from "./DataDescription"
+import { DataDescription, DataStatus } from "./DataDescription"
 import { toFloat } from "../utils"
-import { DataArguments } from "./types"
+import { Tokens } from "./types"
 
 /**
  * Stylolite teeth are defined by a set of two parameters as follows:
@@ -22,7 +21,7 @@ import { DataArguments } from "./types"
  * @category Data
  */
 export class StyloliteTeeth extends StyloliteInterface {
-    private coordinates: SphericalCoords = new SphericalCoords()
+    // private coordinates: SphericalCoords = new SphericalCoords()
     private stylolite_teeth_plunge: number
     private stylolite_teeth_trend: number
 
@@ -39,27 +38,8 @@ export class StyloliteTeeth extends StyloliteInterface {
     //         optional: [11, 12]
     //     }
     // }
-
-    /*
-    initialize(params: DataParameters[]): boolean {
-        if (Number.isNaN(params[0].stylolite_teeth_trend)) {
-            throw new Error('Missing trend angle for Stylolite Teeth')
-        }
-        if (Number.isNaN(params[0].stylolite_teeth_plunge)) {
-            throw new Error('Missing plunge angle for Stylolite Teeth')
-        }
-
-        this.stylolite_teeth_trend  = params[0].stylolite_teeth_trend
-        this.stylolite_teeth_plunge = params[0].stylolite_teeth_plunge
-        // The unit vector 'normal' is parrallel to the stylolite teeth:
-        //      'normal' can be considered to be equivalent to the perpendicular vector to a stylolite interface
-        // The misfit is a normalized function of the angle between the 'normal' and the hypothetical stress axis Sigma 1 
-        this.normal = trendPlunge2unitAxis({ trend: this.stylolite_teeth_trend, plunge: this.stylolite_teeth_plunge })
-        return true
-    }
-    */
     
-    initialize(args: DataArguments): DataMessages {
+    initialize(args: Tokens[]): DataStatus {
         const toks = args[0]
         const result = { status: true, messages: [] }
         

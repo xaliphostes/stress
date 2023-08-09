@@ -49,7 +49,7 @@ export function decodeCSV_Angles(lines: string, otherParams: {[key: string]: any
                 rake: parseFloat(r[i++]),
                 strike_direction: r[i++],
                 striation_trend: parseFloat(r[i++]),
-                sens_of_movement: r[i++],
+                type_of_movement: r[i++],
                 stylolite_teeth_trend: parseFloat(r[i++]),
                 stylolite_teeth_plunge: parseFloat(r[i++])
             }

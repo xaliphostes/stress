@@ -2,7 +2,7 @@ import { SearchMethod } from "./search/SearchMethod"
 import { cloneMatrix3x3, Matrix3x3, newMatrix3x3, newMatrix3x3Identity, Vector3 } from "./types/math"
 import { Data } from "./data"
 import { MonteCarlo } from "./search"
-import { TensorParameters } from "./geomeca"
+import { HypotheticalSolutionTensorParameters } from "./geomeca"
 
 /**
  * @category Inversion
@@ -85,7 +85,7 @@ export class InverseMethod {
         return this.searchMethod.run(this.data_, this.misfitCriteriunSolution)
     }
 
-    cost({displ, strain, stress}:{displ?: Vector3, strain?: TensorParameters, stress?: TensorParameters}): number {
+    cost({displ, strain, stress}:{displ?: Vector3, strain?: HypotheticalSolutionTensorParameters, stress?: HypotheticalSolutionTensorParameters}): number {
         if (this.data_.length === 0) {
             throw new Error('No data provided')
         }

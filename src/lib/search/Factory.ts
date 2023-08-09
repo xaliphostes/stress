@@ -1,6 +1,6 @@
 import { MasterStress, StressTensor } from '../types'
 import { DebugSearch } from './DebugSearch'
-import { GridSearch } from './GridSearch'
+// import { GridSearch } from './GridSearch'
 import { MonteCarlo } from './MonteCarlo'
 import { SearchMethod } from './SearchMethod'
 
@@ -42,6 +42,6 @@ export namespace SearchMethodFactory {
 
 }
 
-SearchMethodFactory.bind(GridSearch, 'Grid Search')
+// SearchMethodFactory.bind(GridSearch, 'Grid Search')
 SearchMethodFactory.bind(DebugSearch, 'Debug Search')
 SearchMethodFactory.bind(MonteCarlo, 'Monte Carlo')

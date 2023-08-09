@@ -5,16 +5,16 @@ import {
     crossProduct, vectorMagnitude, scalarProduct, tensor_x_Vector,
     multiplyTensors, transposeTensor, minRotAngleRotationTensor, newMatrix3x3, deg2rad
 } from "../types"
-import { Data } from "./Data"
-import { Direction, FaultHelper, SensOfMovement, directionExists, getDirectionFromString, getSensOfMovementFromString, sensOfMovementExists } from "../utils/FaultHelper"
-import { DataArguments, FractureStrategy, StriatedPlaneProblemType } from "./types"
-import { DataParameters } from "./DataParameters"
-import { TensorParameters } from "../geomeca"
-import { DataDescription, DataMessages } from "./DataDescription"
-import { isDefined, isNumber, toFloat, toInt } from "../utils"
-import { DataFactory } from "./Factory"
+import {
+    Direction, FaultHelper, TypeOfMovement,
+    directionExists, getDirectionFromString, getTypeOfMovementFromString, sensOfMovementExists
+} from "../utils/FaultHelper"
+import { Tokens, StriatedPlaneProblemType, createStriation, createPlane, createSigma1_nPlaneAngle } from "./types"
+import { DataArgument, DataStatus, createDataArgument, createDataStatus } from "./DataDescription"
+import { toInt } from "../utils"
 import { NeoformedStriatedPlane } from "./NeoformedStriatedPlane"
 import { HypotheticalSolutionTensorParameters } from "../geomeca/HypotheticalSolutionTensorParameters"
+import { readSigma1nPlaneInterval, readStriatedFaultPlane } from "../io/DataReader"
 
 
 /**
@@ -59,173 +59,40 @@ b) The sense of mouvement is indicated for each fault plane:
       Strike-slip component:
           RL = Right-Lateral fault
           LL = Left-Lateral fault
-      Unknown (the most compatible type of movement is selected **): 
-        UKN
-    Sense of mouvement: N, I, RL, LL, N-RL, N-LL, I-RL, I-LL, UKN
+      Undefined (the most compatible type of movement is selected **): 
+        UND
+    Sense of mouvement: N, I, RL, LL, N-RL, N-LL, I-RL, I-LL, UND
 
 * @category Data
 */
 
 export class StriatedCompactionalShearBand extends NeoformedStriatedPlane {
-    // protected plane = true
-    // protected nPlane: Vector3 = undefined
-    // protected nStriation: Vector3 = undefined
-    // protected pos: Vector3 = undefined
-    // protected problemType = StriatedPlaneProblemType.DYNAMIC
-    // protected strategy = FractureStrategy.ANGLE
-    // protected oriented = true
-    // protected EPS = 1e-7
-    // protected nPerpStriation: Vector3
-    // protected nSigma1_Sm_Mean: Vector3
-    // protected deltaTheta1_Sm = 0
-    // protected Mrot = [newMatrix3x3(), newMatrix3x3(), newMatrix3x3()]
-    // protected noPlane = 0
 
-    // protected nSigma1_Sm: Vector3
-    // protected nSigma2_Sm: Vector3
-    // protected nSigma3_Sm: Vector3
-
-    // protected angleMean_nSigma1_Sm_nPlane: number
-
-    // // The angle < nSigma1,nPlane> is defined in interval < nSigma1_nPlane_AngleMin, nSigma1_nPlane_AngleMax > in Data file
-    // protected nSigma1_nPlane_AngleInterval = false
-    // protected nSigma1_nPlane_AngleMin = 45
-    // protected nSigma1_nPlane_AngleMax = 90
-
-    initialize(args: DataArguments): DataMessages {
+    initialize(args: Tokens[]): DataStatus {
         const toks = args[0]
-        const result = { status: true, messages: [] }
+        const result = createDataStatus()
+        const arg = createDataArgument()
 
         // -----------------------------------
-
-        const strike = toFloat(toks[2])
-        if (!DataDescription.checkRanges(strike)) {
-            DataDescription.putMessage(toks, 2, this, result)
-        }
-
-        // -----------------------------------
-
-        const dip = toFloat(toks[3])
-        if (!DataDescription.checkRanges(dip)) {
-            DataDescription.putMessage(toks, 3, this, result)
-        }
-
-        // -----------------------------------
-
-        let dipDirection = Direction.UNKOWN
-        if ((dip !== 90) && (dip !== 0)) {
-            // In the general case, the dip direction for non-horizontal and non-vertical planes
-            // must be defined in terms of a geographic direction: N, S, E, W, NE, SE, SW, NW
-            if (!DataDescription.checkRanges(toks[4])) {
-                DataDescription.putMessage(toks, 4, this, result)
-            }
-            else {
-                dipDirection = getDirectionFromString(toks[4])
-                if (dipDirection === Direction.UNKOWN) {
-                    throw new Error('Set dip direction for ' + toks[1] + ' ' + toks[0])
-                }
-            }
-        }
-        else {
-        }
-
-        // -----------------------------------
-
-        // The striae itself
-        let striationTrend: number = undefined
-        let rake: number = undefined
-        let strikeDirection = Direction.UNKOWN
-
-        if (isNumber(toks[7])) {
-            // striation trend is provided: 7
-            if (!DataDescription.checkRanges(toks[7])) {
-                DataDescription.putMessage(toks, 7, this, result)
-            }
-            striationTrend = toFloat(toks[7])
-        }
-        else {
-            // rake and strike direction are provided: 5 & 6
-            if (!DataDescription.checkRanges(toks[5])) {
-                DataDescription.putMessage(toks, 5, this, result)
-            }
-            rake = toFloat(toks[5])
-
-            if (rake !== 90) {
-                // if the rake < 90° the strikeDirection must be specified
-                if (!DataDescription.checkRanges(toks[6])) {
-                    DataDescription.putMessage(toks, 6, this, result)
-                } else {
-                    strikeDirection = getDirectionFromString(toks[6])
-                }
-            }
-            else {
-                if (dip === 90) {
-                    // Special case: Vertical plane with vertical striation: dip = 90; rake = 90
-                    // In such case, the dipDirection indicates the direction of the uplifted block and it must be specified
-                    if (!DataDescription.checkRanges(toks[4])) {
-                        DataDescription.putMessage(toks, 4, this, result)
-                    }
-                    else {
-                        dipDirection = getDirectionFromString(toks[4])
-                    }
-                }
-            }
-        }
-
-        // -----------------------------------
-
-        let sensOfMovement = SensOfMovement.UKN
-        if (!DataDescription.checkRanges(toks[8])) {
-            DataDescription.putMessage(toks, 8, this, result)
-        }
-        else {
-            sensOfMovement = getSensOfMovementFromString(toks[8])
-        }
+        // Read parameters definning plane orientation, striation orientation and type of movement
+        const plane = createPlane()
+        const striation = createStriation()
+        readStriatedFaultPlane(arg, plane, striation, result)
 
         // -----------------------------------
 
         // 15, 16 = Minimum angle <Sigma 1, nPlane>, maximum angle <Sigma 1, nPlane> (one or both may de defined **)
-        if (isDefined(toks[15]) || isDefined(toks[16])) {
-            // One or both <Sigma 1, nPlane> angles are defined
-            if (isDefined(toks[15])) {
-                if (!DataDescription.checkRanges(toks[15])) {
-                    DataDescription.putMessage(toks, 15, this, result)
-                } else {
-                    this.nSigma1_nPlane_AngleMin = deg2rad(toFloat(toks[15]))
-                }
-            } else {
-                // Minimum <Sigma 1, nPlane> angle is not defined and is set to the minimum value **
-                this.nSigma1_nPlane_AngleMin = 0
-            }
-            if (isDefined(toks[16])) {
-                if (!DataDescription.checkRanges(toks[16])) {
-                    DataDescription.putMessage(toks, 16, this, result)
-                } else {
-                    this.nSigma1_nPlane_AngleMax = deg2rad(toFloat(toks[16]))
-                }
-            } else {
-                // Maximum <Sigma 1, nPlane> angle is not defined and is set to the maximum value (45°)
-                this.nSigma1_nPlane_AngleMax = Math.PI / 4
-            }
+        //      Default values are set in class NeoformedStriatedPlane: nSigma1_nPlane_AngleMin = 45, nSigma1_nPlane_AngleMax = 90
 
-            if (this.nSigma1_nPlane_AngleMax < this.nSigma1_nPlane_AngleMin) {
-                result.status = false
-                result.messages.push(`for data ${DataFactory.name(this)}, ${DataDescription.names[15]} (${this.nSigma1_nPlane_AngleMin}) is greater than ${DataDescription.names[16]} (${this.nSigma1_nPlane_AngleMax})`)
-            }
-            this.nSigma1_nPlane_AngleInterval = true
-        }
+        // -----------------------------------
+        // Read parameters defining the angular interval for <Sigma 1, nPlane> of the point associated with the fault plane in the Mohr Circle (Sigma_1, Sigma_3)/
+        const sigma1_nPlane = createSigma1_nPlaneAngle()
+        readSigma1nPlaneInterval(arg, sigma1_nPlane, result)
 
         // -----------------------------------
 
         // Check that nPlane and nStriation are unit vectors
-        const { nPlane, nStriation, nPerpStriation } = FaultHelper.create({
-            strike,
-            dipDirection,
-            dip,
-            sensOfMovement,
-            rake,
-            strikeDirection
-        })
+        const { nPlane, nStriation, nPerpStriation } = FaultHelper.create(plane, striation)
 
         this.nPlane = nPlane
         this.nStriation = nStriation
@@ -258,11 +125,11 @@ export class StriatedCompactionalShearBand extends NeoformedStriatedPlane {
         return getDirectionFromString(s)
     }
 
-    protected getSensOfMovement(s: string): SensOfMovement {
+    protected getTypeOfMovement(s: string): TypeOfMovement {
         if (!sensOfMovementExists(s)) {
             throw new Error(`Sens of movement ${s} is not defined (or incorrectly defined)`)
         }
-        return getSensOfMovementFromString(s)
+        return getTypeOfMovementFromString(s)
     }
 
     check({ displ, strain, stress }: { displ: Vector3, strain: Matrix3x3, stress: Matrix3x3 }): boolean {
@@ -272,7 +139,7 @@ export class StriatedCompactionalShearBand extends NeoformedStriatedPlane {
         return displ !== undefined
     }
 
-    cost({ displ, hStrain, hStress }: { displ: Vector3, hStrain: HypotheticalSolutionTensorParameters, hStress: HypotheticalSolutionTensorParameters }): number {
+    cost({ displ, strain, stress }: { displ: Vector3, strain: HypotheticalSolutionTensorParameters, stress: HypotheticalSolutionTensorParameters }): number {
         if (this.problemType === StriatedPlaneProblemType.DYNAMIC) {
             // We define 3 orthonormal right-handed reference systems:
             //      S =  (X, Y, Z ) is the geographic reference frame oriented in (East, North, Up) directions.
@@ -306,6 +173,8 @@ export class StriatedCompactionalShearBand extends NeoformedStriatedPlane {
 
             let Omega: number
             let nOmega: Vector3
+
+            const hStress = stress
 
             if (this.plane) {
                 // The Striated Compactional Shear Band is defined (strike, dip and dipDirection)
@@ -407,7 +276,7 @@ export class StriatedCompactionalShearBand extends NeoformedStriatedPlane {
         }
     }
 
-    private nSigma1_Sm_Mean_deltaTheta1_Sm_MohrCircle() {
+    protected nSigma1_Sm_Mean_deltaTheta1_Sm_MohrCircle() {
         // This method calculates vector sigma1_Sm_Mean and deltaTheta1_Sm such that:
         //      nSigma1_Sm_Mean = unit vector Sigma 1 defined in reference system Sm, whose location in the Mohr Circle is centred in the valid angular interval.
         //      deltaTheta1_Sm = angle between sigma1_Sm_Mean and the stress axis located at the boundaries of the Mohr circle angular interval.
@@ -443,7 +312,7 @@ export class StriatedCompactionalShearBand extends NeoformedStriatedPlane {
         })
     }
 
-    private rotationTensors_S2Sm_Mrot() {
+    protected rotationTensors_S2Sm_Mrot() {
         // This method calculates the 3 rotation matrixes Mrot[i] between the geographic reference system S = (X, Y, Z)
         // and the references system Sm = (Xm, Ym, Zm) associated to the micro/meso structure (e.g., Striated Compactional Shear Band, such that:
         //      Vm = Mrot[i] . V        where V and Vm are corresponding vectors in reference systems S and Sm

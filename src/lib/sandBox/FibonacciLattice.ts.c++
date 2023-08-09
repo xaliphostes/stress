@@ -262,10 +262,10 @@ export class FibonacciLattice implements SearchMethod {
         } */
 
     rotationAxisSigma2(
-        {sensOfMovement, striationTrend}:
-        {sensOfMovement: SensOfMovement, striationTrend: Direction}): Fault
+        {typeOfMovement, striationTrend}:
+        {typeOfMovement: TypeOfMovement, striationTrend: Direction}): Fault
     {
-        this.sensMouv = sensOfMovement
+        this.typeMov = typeOfMovement
         this.striationTrend = striationTrend
         this.faultStriationAngle_A()
         this.faultStriationAngle_B()

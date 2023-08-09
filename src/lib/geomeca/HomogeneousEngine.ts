@@ -1,7 +1,5 @@
-import { Data } from "../data";
-import { Matrix3x3, Vector3, cloneMatrix3x3, transposeTensor } from "../types";
+import { Matrix3x3, Vector3, transposeTensor } from "../types";
 import { Engine } from "./Engine"
-import { eigen } from "@youwol/math"
 import { HypotheticalSolutionTensorParameters } from "./HypotheticalSolutionTensorParameters";
 import { stressTensorDelta } from "../search";
 
@@ -14,7 +12,7 @@ export class HomogeneousEngine implements Engine {
     private Hrot_:   Matrix3x3 = undefined
     private stressRatio_: number = undefined
 
-    setHStress(Hrot: Matrix3x3, stressRatio: number): void {
+    setHypotheticalStress(Hrot: Matrix3x3, stressRatio: number): void {
         this.Hrot_ = Hrot
         this.stressRatio_ = stressRatio
 

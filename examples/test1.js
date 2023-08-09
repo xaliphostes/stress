@@ -8,10 +8,10 @@ const math = require('@youwol/math')
 // console.log(myData)
 // --------------------  end pour info
 
-function addData({data, strike, dipDirection, dip, sensOfMovement, rake, strikeDirection}){
+function addData({data, strike, dipDirection, dip, typeOfMovement, rake, strikeDirection}){
     const s = STRESS.Fault.create({
         strike, dipDirection, dip,
-        rake, strikeDirection, sensOfMovement
+        rake, strikeDirection, typeOfMovement
     })
     data.push( new STRESS.StriatedPlane({nPlane: s.nPlane, nStriation: s.nStriation}) )
 }
@@ -23,37 +23,37 @@ const data = []
 
 addData({data,
     strike: 45, dipDirection: STRESS.Direction.SE, dip: 60,
-    rake: 0, strikeDirection: STRESS.Direction.NE, sensOfMovement: STRESS.SensOfMovement.RL
+    rake: 0, strikeDirection: STRESS.Direction.NE, typeOfMovement: STRESS.TypeOfMovement.RL
 })
 
 addData({data,
     strike: 45, dipDirection: STRESS.Direction.SE, dip: 60,
-    rake: 5, strikeDirection: STRESS.Direction.NE, sensOfMovement: STRESS.SensOfMovement.RL
+    rake: 5, strikeDirection: STRESS.Direction.NE, typeOfMovement: STRESS.TypeOfMovement.RL
 })
 
 addData({data,
     strike: 45, dipDirection: STRESS.Direction.SE, dip: 30,
-    rake: 4, strikeDirection: STRESS.Direction.SW, sensOfMovement: STRESS.SensOfMovement.RL
+    rake: 4, strikeDirection: STRESS.Direction.SW, typeOfMovement: STRESS.TypeOfMovement.RL
 })
 
 addData({data,
     strike: 45, dipDirection: STRESS.Direction.NW, dip: 45 ,
-    rake: 3, strikeDirection: STRESS.Direction.SW, sensOfMovement: STRESS.SensOfMovement.RL
+    rake: 3, strikeDirection: STRESS.Direction.SW, typeOfMovement: STRESS.TypeOfMovement.RL
 })
 
 addData({data,
     strike: 135, dipDirection: STRESS.Direction.NE, dip: 60 ,
-    rake: 6, strikeDirection: STRESS.Direction.SE, sensOfMovement: STRESS.SensOfMovement.LL
+    rake: 6, strikeDirection: STRESS.Direction.SE, typeOfMovement: STRESS.TypeOfMovement.LL
 })
 
 addData({data,
     strike: 135, dipDirection: STRESS.Direction.NE, dip: 30 ,
-    rake: 2, strikeDirection: STRESS.Direction.NW, sensOfMovement: STRESS.SensOfMovement.LL
+    rake: 2, strikeDirection: STRESS.Direction.NW, typeOfMovement: STRESS.TypeOfMovement.LL
 })
 
 addData({data,
     strike: 135, dipDirection: STRESS.Direction.SW, dip: 40 ,
-    rake: 1, strikeDirection: STRESS.Direction.SE, sensOfMovement: STRESS.SensOfMovement.LL
+    rake: 1, strikeDirection: STRESS.Direction.SE, typeOfMovement: STRESS.TypeOfMovement.LL
 })
 
 // ...

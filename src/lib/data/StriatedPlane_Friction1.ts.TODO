@@ -1,4 +1,4 @@
-import { TensorParameters } from "../geomeca"
+import { HypotheticalSolutionTensorParameters } from "../geomeca"
 import { 
     add_Vectors, 
     constant_x_Vector, 
@@ -12,6 +12,7 @@ import {
 } from "../types"
 import { DataParameters } from "./DataParameters"
 import { StriatedPlaneKin } from "./StriatedPlane_Kin"
+import { Tokens } from "./types"
 
 /**
  * @category Data
@@ -38,7 +39,7 @@ export class StriatedPlaneFriction1 extends StriatedPlaneKin {
         this.weightFriction_ = w
     }
 
-    initialize2(params: DataParameters[]): boolean {
+    initialize2(params: Tokens[]): boolean {
         if (super.initialize(params) === false) {
             return false
         }
@@ -58,7 +59,7 @@ export class StriatedPlaneFriction1 extends StriatedPlaneKin {
         return true
     }
 
-    cost({ displ, strain, stress }: { displ: Vector3, strain: TensorParameters, stress: TensorParameters }): number {
+    cost({ displ, strain, stress }: { displ: Vector3, strain: HypotheticalSolutionTensorParameters, stress: HypotheticalSolutionTensorParameters }): number {
         // For each striated fault the misfit distance is defined in terms of an angular distance between the stress vector F
         // and the closest axis Fkf that satisfies both the kinematical and frictional costraints.
         // In other words, Fkf is such that its projection on the fault plane is parallel to the measured striation 

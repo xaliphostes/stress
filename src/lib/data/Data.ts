@@ -1,7 +1,7 @@
-import { TensorParameters } from "../geomeca/TensorParameters"
+import { HypotheticalSolutionTensorParameters } from "../geomeca/HypotheticalSolutionTensorParameters"
 import { Matrix3x3, Point3D, Vector3 } from "../types/math"
-import { DataMessages } from "./DataDescription"
-import { DataArguments } from "./types"
+import { DataStatus } from "./DataDescription"
+import { Tokens } from "./types"
 
 /**
  * @brief A Data represents one and only one measure
@@ -46,7 +46,7 @@ export abstract class Data  {
      * Replace the constructor
      */
     //abstract initialize(params: DataParameters[]): boolean
-    abstract initialize(args: DataArguments): DataMessages
+    abstract initialize(args: Tokens[]): DataStatus
 
     /**
      * @brief Check the consistency of the datum
@@ -70,7 +70,7 @@ export abstract class Data  {
 
     abstract cost(
         { displ, strain, stress }:
-        { displ?: Vector3, strain?: TensorParameters, stress?: TensorParameters }): number
+        { displ?: Vector3, strain?: HypotheticalSolutionTensorParameters, stress?: HypotheticalSolutionTensorParameters }): number
 
     /**
      * After stress inersion, get the inered data orientation/magnitude/etc for this specific Data

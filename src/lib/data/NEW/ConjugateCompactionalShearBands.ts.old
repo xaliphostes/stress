@@ -11,7 +11,7 @@
 // import { StriatedPlaneProblemType } from "./StriatedPlane_Kin"
 // import { FractureStrategy } from "./types"
 
-// import { Fault, Direction, SensOfMovement } from "../utils/Fault"
+// import { Fault, Direction, TypeOfMovement } from "../utils/Fault"
 
 
 // // import { Fracture, FractureParams, FractureStrategy } from "./Fracture"
@@ -19,10 +19,10 @@
 import { add_Vectors, constant_x_Vector, Matrix3x3, multiplyTensors, newMatrix3x3, normalizedCrossProduct, normalizeVector, scalarProductUnitVectors, transposeTensor, Vector3 } from "../types"
 import { Data } from "./Data"
 // import { faultStressComponents } from "../types/mechanics"
-// import { Fault, Direction, SensOfMovement } from "../utils/Fault"
+// import { Fault, Direction, TypeOfMovement } from "../utils/Fault"
 import { FractureStrategy, StriatedPlaneProblemType } from "./types"
 import { CompactionShearBands } from "../utils/CompactionShearBands"
-import { getDirectionFromString, getSensOfMovementFromString } from "../utils"
+import { getDirectionFromString, getTypeOfMovementFromString } from "../utils"
 import { minRotAngleRotationTensor } from "../types/math"
 import { DataParameters } from "./DataParameters"
 
@@ -121,7 +121,7 @@ export class CompactionShearBands extends Data {
                 strike: params[i].strike,
                 dipDirection: getDirectionFromString(params[i].dipDirection),
                 dip: params[i].dip,
-                sensOfMovement: getSensOfMovementFromString(params[i].typeOfMovement),
+                typeOfMovement: getTypeOfMovementFromString(params[i].typeOfMovement),
                 rake: params[i].rake,
                 strikeDirection: getDirectionFromString(params[i].strikeDirection)
             }
@@ -218,20 +218,20 @@ export class CompactionShearBands extends Data {
                     // of conjugate plaes 1 and 2 in the geographic reference system: S = (X,Y,Z) = (E,N,Up)
                     // This requires using method faultSphericalCoords in class fault
                     // Check that the sense of mouvement is consistent with the orientation of stress axes***
-                    if (this.params[0].sensOfMovement !== 'UKN') {
-                        // The sense of movement is defined for compaction-shear band 1 (UKN = unknown)
+                    if (this.params[0].typeOfMovement !== 'UND') {
+                        // The sense of movement is defined for compaction-shear band 1 (UND = undefined)
                         // Check consitency of movement 
                         this.csb[0].conjugatePlaneCheckMouvement({
                             noPlane: this.params[0].noPlane,
                             nPlane: this.nPlane[0],
                             coordinates: this.csb[0].fault.sphericalCoords,
                             nStriation: this.csb[0].fault.striation,
-                            sensOfMovement: this.params[0].sens_of_movement,
+                            typeOfMovement: this.params[0].type_of_movement,
                             nSigma3_Sm: this.nSigma3_Sm,
                             nSigma2_Sm: this.nSigma2_Sm
                         })
                     }
-                    if (this.params[1].sensOfMovement !== 'UKN') {
+                    if (this.params[1].typeOfMovement !== 'UND') {
                         // The sense of movement is defined for compaction-shear band 2
                         // Check consitency of movement
                         this.csb[1].conjugatePlaneCheckMouvement({
@@ -239,7 +239,7 @@ export class CompactionShearBands extends Data {
                             nPlane: this.nPlane[1],
                             coordinates: this.csb[1].fault.sphericalCoords,
                             nStriation: this.csb[1].fault.striation,
-                            sensOfMovement: this.params[1].sens_of_movement,
+                            typeOfMovement: this.params[1].type_of_movement,
                             nSigma3_Sm: this.nSigma3_Sm,
                             nSigma2_Sm: this.nSigma2_Sm
                         })
@@ -249,7 +249,7 @@ export class CompactionShearBands extends Data {
                     // The angle between the 2 normals is approximately equal to PI/2:
                     // In this situation, the orientation of Sigma 1 and Sigma 3 can be permuted.
                     // The sense of mouvement of at least one compaction-shear band must be known in order to define the orientation of the stress axes
-                    if (this.params[0].sensOfMovement !== 'UKN' || this.params[1].sensOfMovement !== 'UKN') {
+                    if (this.params[0].typeOfMovement !== 'UND' || this.params[1].typeOfMovement !== 'UND') {
                         // Find orientations of Sigma 1, Sigma 2 and Sigma 3, and check for consistency of mouvement if both movements are known.
                     } else {
                         const msg = 'conjugate faults ' + this.params[0].noPlane + ' and ' + this.params[1].noPlane + ' are perpendicular. Please indicate type of movement for at least one plane'

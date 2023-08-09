@@ -1,14 +1,14 @@
 import { constant_x_Vector, newVector3D, normalizedCrossProduct, scalarProductUnitVectors, SphericalCoords, Vector3 } from "../types"
-import { Direction, FaultHelper, SensOfMovement } from "./FaultHelper"
+import { Direction, FaultHelper, TypeOfMovement } from "./FaultHelper"
 
 export class ConjugatePlanesHelper {
     static create(
-        {strike, dipDirection, dip, sensOfMovement, rake, strikeDirection}:
-        {strike: number, dipDirection: Direction, dip: number, sensOfMovement: SensOfMovement, rake: number, strikeDirection: Direction}):
+        {strike, dipDirection, dip, typeOfMovement, rake, strikeDirection}:
+        {strike: number, dipDirection: Direction, dip: number, typeOfMovement: TypeOfMovement, rake: number, strikeDirection: Direction}):
         {nPlane: Vector3, nStriation: Vector3, nPerpStriation: Vector3, fault: FaultHelper}
     {
         const f = new FaultHelper({strike, dipDirection, dip})
-        f.setStriation({sensOfMovement, rake, strikeDirection})
+        f.setStriation({typeOfMovement, rake, strikeDirection})
         return {
             nPlane: f.normal,
             nStriation: f.striation,
@@ -22,8 +22,8 @@ export class ConjugatePlanesHelper {
     }
 
     conjugatePlaneCheckmovement(
-        {noPlane, nPlane, coordinates, sensOfMovement, nSigma3_Sm, nSigma2_Sm}:
-        {noPlane: number, nPlane: Vector3, coordinates: SphericalCoords, sensOfMovement: SensOfMovement, nSigma3_Sm: Vector3, nSigma2_Sm: Vector3}): void
+        {noPlane, nPlane, coordinates, typeOfMovement, nSigma3_Sm, nSigma2_Sm}:
+        {noPlane: number, nPlane: Vector3, coordinates: SphericalCoords, typeOfMovement: TypeOfMovement, nSigma3_Sm: Vector3, nSigma2_Sm: Vector3}): void
     {
         // The striation vector (or shear sense in the case of shear bands) for conjugate planes is NOT defined in the data file.
         //      The striation is calculated from geometric data by considering that it is located in the plane of movement, 
@@ -93,7 +93,7 @@ export class ConjugatePlanesHelper {
         if ( strikeSlipComponent > this.EPS) {
             // In principle, the conjugate plane has a left-lateral component of movement
 
-            if (sensOfMovement === SensOfMovement.RL || sensOfMovement === SensOfMovement.N_RL || sensOfMovement === SensOfMovement.I_RL) {
+            if (typeOfMovement === TypeOfMovement.RL || typeOfMovement === TypeOfMovement.N_RL || typeOfMovement === TypeOfMovement.I_RL) {
                 // throw new Error('Sense of movement of conjugate plane ' + noPlane + ' includes a right-lateral (RL) which is not consistent with fault kinematics')
                 throw new Error(`Sense of movement of conjugate plane ${noPlane} includes a right-lateral (RL) which is not consistent with fault kinematics`)
             }
@@ -101,13 +101,13 @@ export class ConjugatePlanesHelper {
         else if ( strikeSlipComponent < -this.EPS) {
             // In principle, the conjugate plane has a right-lateral component of movement
 
-            if (sensOfMovement === SensOfMovement.LL || sensOfMovement === SensOfMovement.N_LL || sensOfMovement === SensOfMovement.I_LL) {
+            if (typeOfMovement === TypeOfMovement.LL || typeOfMovement === TypeOfMovement.N_LL || typeOfMovement === TypeOfMovement.I_LL) {
                 throw new Error(`Sense of movement of conjugate plane ${noPlane} includes a left-lateral (LL), which is not consistent with fault kinematics`)
             }
         }
         else {
             // In principle, the strike-slip component of movement of the conjugate plane is negligeable
-            if (sensOfMovement !== SensOfMovement.N && sensOfMovement !== SensOfMovement.I && sensOfMovement !== SensOfMovement.UKN) {
+            if (typeOfMovement !== TypeOfMovement.N && typeOfMovement !== TypeOfMovement.I && typeOfMovement !== TypeOfMovement.UND) {
                 throw new Error(`Sense of movement of conjugate plane ${noPlane} includes a strike-slip component, which is not consistent with fault kinematics`)
             }
         }
@@ -116,28 +116,28 @@ export class ConjugatePlanesHelper {
         if ( dipComponent > this.EPS) {
             // In principle, the conjugate plane has a normal component of movement
 
-            if (sensOfMovement === SensOfMovement.I || sensOfMovement === SensOfMovement.I_RL || sensOfMovement === SensOfMovement.I_LL) {
+            if (typeOfMovement === TypeOfMovement.I || typeOfMovement === TypeOfMovement.I_RL || typeOfMovement === TypeOfMovement.I_LL) {
                 throw new Error(`Sense of movement of conjugate plane ${noPlane} includes an inverse (I) component, which is not consistent with fault kinematics`)
             }
         }
         else if ( dipComponent < -this.EPS) {
             // In principle, the conjugate plane has an inverse component of movement
 
-            if (sensOfMovement === SensOfMovement.N || sensOfMovement === SensOfMovement.N_RL || sensOfMovement === SensOfMovement.N_LL) {
+            if (typeOfMovement === TypeOfMovement.N || typeOfMovement === TypeOfMovement.N_RL || typeOfMovement === TypeOfMovement.N_LL) {
                 throw new Error(`Sense of movement of conjugate plane ${noPlane} includes a normal component, which is not consistent with fault kinematics`)
             }
         }
         else {
             // In principle, the dip component of movement of the conjugate plane is negligeable
-            if (sensOfMovement !== SensOfMovement.RL && sensOfMovement !== SensOfMovement.LL && sensOfMovement !== SensOfMovement.UKN) {
+            if (typeOfMovement !== TypeOfMovement.RL && typeOfMovement !== TypeOfMovement.LL && typeOfMovement !== TypeOfMovement.UND) {
                 throw new Error(`Sense of movement of conjugate plane ${noPlane} includes an dip component (I or N), which is not consistent with fault kinematics`)
             }
         }
     }
 
     perpendicularPlanesCheckmovement(
-        {noPlane, nPlane, coordinates, sensOfMovement, nSigma3_Sm, nSigma2_Sm}:
-        {noPlane: number, nPlane: Vector3, coordinates: SphericalCoords, sensOfMovement: SensOfMovement, nSigma3_Sm: Vector3, nSigma2_Sm: Vector3}): boolean
+        {noPlane, nPlane, coordinates, typeOfMovement, nSigma3_Sm, nSigma2_Sm}:
+        {noPlane: number, nPlane: Vector3, coordinates: SphericalCoords, typeOfMovement: TypeOfMovement, nSigma3_Sm: Vector3, nSigma2_Sm: Vector3}): boolean
     {
         // The striation vector (or shear sense in the case of shear bands) for conjugate planes is NOT defined in the data file.
         //      The striation is calculated from geometric data by considering that it is located in the plane of movement, 
@@ -209,7 +209,7 @@ export class ConjugatePlanesHelper {
         if ( strikeSlipComponent > this.EPS) {
             // In principle, the conjugate plane has a left-lateral component of movement
 
-            if (sensOfMovement === SensOfMovement.RL || sensOfMovement === SensOfMovement.N_RL || sensOfMovement === SensOfMovement.I_RL) {
+            if (typeOfMovement === TypeOfMovement.RL || typeOfMovement === TypeOfMovement.N_RL || typeOfMovement === TypeOfMovement.I_RL) {
                 // throw new Error('Sense of movement of conjugate plane ' + noPlane + ' includes a right-lateral (RL) which is not consistent with fault kinematics')
                 // throw new Error(`Sense of movement of conjugate plane ${noPlane} includes a right-lateral (RL) which is not consistent with fault kinematics`)
 
@@ -220,14 +220,14 @@ export class ConjugatePlanesHelper {
         else if ( strikeSlipComponent < -this.EPS) {
             // In principle, the conjugate plane has a right-lateral component of movement
 
-            if (sensOfMovement === SensOfMovement.LL || sensOfMovement === SensOfMovement.N_LL || sensOfMovement === SensOfMovement.I_LL) {
+            if (typeOfMovement === TypeOfMovement.LL || typeOfMovement === TypeOfMovement.N_LL || typeOfMovement === TypeOfMovement.I_LL) {
                 // throw new Error(`Sense of movement of conjugate plane ${noPlane} includes a left-lateral (LL), which is not consistent with fault kinematics`)
                 return false
             }
         }
         else {
             // In principle, the strike-slip component of movement of the conjugate plane is negligeable
-            if (sensOfMovement !== SensOfMovement.N && sensOfMovement !== SensOfMovement.I && sensOfMovement !== SensOfMovement.UKN) {
+            if (typeOfMovement !== TypeOfMovement.N && typeOfMovement !== TypeOfMovement.I && typeOfMovement !== TypeOfMovement.UND) {
                 // throw new Error(`Sense of movement of conjugate plane ${noPlane} includes a strike-slip component, which is not consistent with fault kinematics`)
                 return false
             }
@@ -237,7 +237,7 @@ export class ConjugatePlanesHelper {
         if ( dipComponent > this.EPS) {
             // In principle, the conjugate plane has a normal component of movement
 
-            if (sensOfMovement === SensOfMovement.I || sensOfMovement === SensOfMovement.I_RL || sensOfMovement === SensOfMovement.I_LL) {
+            if (typeOfMovement === TypeOfMovement.I || typeOfMovement === TypeOfMovement.I_RL || typeOfMovement === TypeOfMovement.I_LL) {
                 // throw new Error(`Sense of movement of conjugate plane ${noPlane} includes an inverse (I) component, which is not consistent with fault kinematics`)
                 return false
             }
@@ -245,14 +245,14 @@ export class ConjugatePlanesHelper {
         else if ( dipComponent < -this.EPS) {
             // In principle, the conjugate plane has an inverse component of movement
 
-            if (sensOfMovement === SensOfMovement.N || sensOfMovement === SensOfMovement.N_RL || sensOfMovement === SensOfMovement.N_LL) {
+            if (typeOfMovement === TypeOfMovement.N || typeOfMovement === TypeOfMovement.N_RL || typeOfMovement === TypeOfMovement.N_LL) {
                 // throw new Error(`Sense of movement of conjugate plane ${noPlane} includes a normal component, which is not consistent with fault kinematics`)
                 return false
             }
         }
         else {
             // In principle, the dip component of movement of the conjugate plane is negligeable
-            if (sensOfMovement !== SensOfMovement.RL && sensOfMovement !== SensOfMovement.LL && sensOfMovement !== SensOfMovement.UKN) {
+            if (typeOfMovement !== TypeOfMovement.RL && typeOfMovement !== TypeOfMovement.LL && typeOfMovement !== TypeOfMovement.UND) {
                 // throw new Error(`Sense of movement of conjugate plane ${noPlane} includes an dip component (I or N), which is not consistent with fault kinematics`)
                 return false
             }
