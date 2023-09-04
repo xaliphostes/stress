@@ -1,5 +1,8 @@
 import { deg2rad, normalizeVector, Vector3 } from '../types'
 
+/**
+ * @param parameters 
+ */
 export function fromDipTrendToNormal({
     dipAngle,
     dipAzimuth,

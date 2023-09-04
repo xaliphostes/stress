@@ -1,0 +1,163 @@
+/**
+ * Read from focal mechanisms data file the parameters definning the nodal planes
+ 
+Focal mecanisms are specified in a separate file, different from the geological data file.
+
+    The seismological data set has the following columns :
+
+    0      Data number                                  Mandatory datum
+    1      Date (yyyy-mm-dd, e.g., 2019-09-22)
+    2      Time (hh:mm:ss, e.g., 17-39-43)
+    3      Latitude north in degrees (e.g., 45.98)
+    4      Longitude east in degrees (e.g., 12.75)
+    5      Depth in km (e.g., 5.8)
+    6      Seismic moment Mo (dyn.cm, e.g., 3.5E+22)
+    7      Strike of nodal plane No 1 [0, 360)          Mandatory datum
+    8      Dip of nodal plane No 1 [0, 90]              Mandatory datum
+    9      Rake of nodal plane No 1 [-180, 180]         Mandatory datum
+    10     Strike of nodal plane No 2 [0, 360)          Optional datum
+    11     Dip of nodal plane No 2 [0, 90]              Optional datum
+    12     Rake of nodal plane No 2 [-180, 180]         Optional datum
+    13     Fault type according to Zoback 1992 (5 categories: N, N_SS, SS, R_SS, R, and UND for those not fitting in any of the five types)
+    14     Quality inversion parameter according to Sarao et al. 2021 (4 is the best solution)
+    15     Weight
+
+    Each nodal plane is defined by a set of 3 parameters as follows:
+        Strike: Angle of the fault-trace direction measured clockwise from the North [0, 360), defined so that the fault dips to the right side of the trace,
+            i.e., the hanging-wall block is always to the right of the strike.
+        Dip: inclination of the nodal plane relative to the horizontal [0, 90].
+            The dip direction is located to the right of the strike such that the cross product of unit vectors points upward :
+            normal = dip X strike
+        Rake: Angle defining the slip vector indicating the movement of the hanging wall relative to the footwall.
+            (i.e., the top block is located in the direction of the normal vector)
+            The rake is measured in the anticlockwise direction from the strike [-180,180] 
+*/
+
+export function readNodalPlane(arg: DataArgument, nodalPlane1: NodalPlane, result: DataStatus): void {
+    nodalPlane1.strike = DataDescription.getParameter(arg.setIndex(7))
+    nodalPlane1.dip = DataDescription.getParameter(arg.setIndex(8))
+    nodalPlane1.rake = DataDescription.getParameter(arg.setIndex(9))
+
+
+
+
+
+
+    if (plane.dip === 0 && plane.dipDirection !== Direction.UND) {
+        // For horizontal planes the dip direction is undefined (UND) 
+        // For vertical planes with vertical striations the dip Direction has a different meaning: it points toward the uplifted block (particular case)
+        result.status = false
+        result.messages.push(`Data number ${arg.toks[0]}, column 4: parameter for ${DataFactory.name(arg.data)}, for a horizontal plane please set the dip direction as undefined (UND)`)
+    }
+
+    // The striation itself
+    if (isNumber(arg.toks[7])) {
+        // The striation trend is defined by a number
+        if (isNumber(arg.toks[5]) || isDefined(arg.toks[6])) {
+            // Define either the rake and strike direction or the striation trend, but not both **
+            // Note that the case in which the rake is a string (and not a number) is not identified (the type and range are checked in DataDescription)
+            result.status = false
+            result.messages.push(`Data number ${arg.toks[0]}, columns 5 to 7: parameter for ${DataFactory.name(arg.data)}, define either the rake and strike direction (cols 5 and 6) or the striation trend (col 7), but not both`)
+        }
+
+    } else if (!isNumber(arg.toks[5]) && !isDefined(arg.toks[6])) {
+        // Specify either the rake and strike direction or the striation trend
+        result.status = false
+        result.messages.push(`Data number ${arg.toks[0]}, columns 5 to 7: parameter for ${DataFactory.name(arg.data)}, set the rake (num) and strike direction (cols 5 and 6) or the striation trend (num, col 7)`)
+
+    } else if (isNumber(arg.toks[5]) && !isDefined(arg.toks[6])) {
+        // Specify the strike direction 
+        result.status = false
+        result.messages.push(`Data number ${arg.toks[0]}, column 6 : parameter for ${DataFactory.name(arg.data)}, set the strike direction - note: it can be undefined (UND)`)
+
+    } else if (!isNumber(arg.toks[5]) && isDefined(arg.toks[6])) {
+        // Define the rake 
+        // Note that two cases are not considered in the possibilities of the 'if - else' structure :
+        //      - when the rake and strike direction are defined correctly as a number and a string,
+        //      - when characters (and not numbers) are used for the rake or the strike direction **
+        result.status = false
+        result.messages.push(`Data number ${arg.toks[0]}, column 5 : parameter for ${DataFactory.name(arg.data)}, define the rake (num)`)
+    }
+
+    if ((plane.dip !== 0) && (plane.dip !== 90)) {
+        // General situation: the striated plane is neither horizontal nor vertical
+
+        if (isNumber(arg.toks[5]) && isDefined(arg.toks[6])) {
+            // The rake and strike direction of the striation are specified;
+            striation.rake = DataDescription.getParameter(arg.setIndex(5))
+            striation.strikeDirection = DataDescription.getParameter(arg.setIndex(6))
+
+            if (striation.rake !== 90) {
+                if (striation.strikeDirection === Direction.UND) {
+                    // The strike direction must be defined in terms of a geographic direction (i.e., the type of movement is not purely normal or inverse)
+                    result.messages.push(`Data number ${arg.toks[0]}: parameter for ${DataFactory.name(arg.data)}, the strike direction (6) is not undefined (UND);  please define a geographic direction`)
+                }
+            }
+        } else if (isNumber(arg.toks[7])) {
+            // The striation trend is defined
+            striation.trend = DataDescription.getParameter(arg.setIndex(7))
+
+        } else {
+            // Striation parameters are incorrect: e.g. characters instead of numbers for the rake or the striation trend
+            // This error would be probably identified when checking ranges in the DataDescription method (?)
+            result.status = false
+            result.messages.push(`Data number ${arg.toks[0]}, columns 5 to 7: parameter for ${DataFactory.name(arg.data)}, set the rake (num) and strike direction (cols 5 and 6) or the striation trend (num, col 7)`)
+        }
+
+    } else if (plane.dip === 0) {
+        // The plane is horizontal
+        // In this special situation the striation trend points toward the movement of the top block relative to the bottom block
+
+        if (isNumber(arg.toks[7])) {
+            striation.trend = DataDescription.getParameter(arg.setIndex(7))
+
+        } else {
+            result.status = false
+            result.messages.push(`Data number ${arg.toks[0]}, column 7: parameter for ${DataFactory.name(arg.data)}, for a horizontal plane, please define the striation trend to indicate relative movement of the top block (num, col 7)`)
+        }
+
+    } else if (plane.dip === 90) {
+        // The plane is vertical
+
+        if (isNumber(arg.toks[5]) && isDefined(arg.toks[6])) {
+            // The rake and strike direction of the striation are specified;
+            striation.rake = DataDescription.getParameter(arg.setIndex(5))
+            striation.strikeDirection = DataDescription.getParameter(arg.setIndex(6))
+
+            if (striation.rake !== 90) {
+
+                if (plane.dipDirection !== Direction.UND) {
+                    // For vertical planes with oblique (non-vertical) striations the dip direction is undefined (UND) 
+                    result.status = false
+                    result.messages.push(`Data number ${arg.toks[0]}, column 4: parameter for ${DataFactory.name(arg.data)}, for a vertical plane please set the dip direction as undefined (UND)`)
+                }
+
+                if (striation.strikeDirection === Direction.UND) {
+                    // The strike direction must be defined in terms of a geographic direction (i.e., it cannot be undefined - UND)
+                    result.messages.push(`Data number ${arg.toks[0]}: parameter for ${DataFactory.name(arg.data)}, the strike direction (6) is not undefined (UND);  please define a geographic direction`)
+                }
+            } else {
+                // The plane and rake are vertical
+                // In this special situation the dip direction has a different meaning: it indicates the direction of the uplifted block 
+
+                if (plane.dipDirection === Direction.UND) {
+                    // For vertical planes with vertical striation, the dip direction points toward the uplifted block and cannot be undefined (UND) 
+                    result.status = false
+                    result.messages.push(`Data number ${arg.toks[0]}, column 4: parameter for ${DataFactory.name(arg.data)}, for a vertical plane and rake, the dip direction points toward the uplifted block and cannot be undefined (col 4)`)
+                }
+            }
+        }
+    }
+
+    const typeOfMovement = DataDescription.getParameter(arg.setIndex(8))
+
+    if ((plane.dip === 0) || ((plane.dip === 90) && (striation.rake === 90))) {
+        // The plane is horizontal or the plane and striation are vertical
+        if ((typeOfMovement !== typeOfMovement.UND)) {
+            // The type of movement should be undefined
+            result.status = false
+            result.messages.push(`Data number ${arg.toks[0]}, col 8: parameter for ${DataFactory.name(arg.data)}, ${DataDescription.names[8]} - for horizontal planes and vertical planes with vertical striation please set the type of movement as undefined (UND)`)
+        }
+    }
+}
+

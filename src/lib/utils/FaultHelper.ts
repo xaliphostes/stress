@@ -1,10 +1,11 @@
 // Calculate the stress components of fault planes
 
-import { crossProduct, Matrix3x3, newMatrix3x3, newVector3D, Vector3 } from "../types/math"
+import { constant_x_Vector, crossProduct, Matrix3x3, newMatrix3x3, newVector3D, normalizedCrossProduct, Vector3 } from "../types/math"
 import { deg2rad, tensor_x_Vector, spherical2unitVectorCartesian } from "../types/math"
 import { SphericalCoords } from "../types/SphericalCoords"
 import { DataArgument, DataDescription, DataFactory, DataStatus, Plane, RuptureFrictionAngles, Sigma1_nPlaneAngle, Striation } from "../data"
 import { isDefined, isNumber } from "./numberUtils"
+import { scalarProduct } from "../types"
 
 /**
  * Usage:
@@ -100,10 +101,18 @@ export function faultParams({strike, dipDirection, dip}:{strike: number, dipDire
 /**
  * A fault is represented by a plane, this with a normal and a position.
  * 
- * Usage:
+ * Usage 1:
  * ```ts
  * const f = new Fault({strike: 30, dipDirection: Direction.E, dip: 60})
- * f.setStriation({rake: 20, strikeDirection: Direction.N, typeMov: 'LL'})
+ * f.setStriationFromRake({rake: 20, strikeDirection: Direction.N, typeMov: 'LL'})
+ * ```
+ * 
+ * Usage 2:
+ * ```ts
+ * const f = FaultHelper.create(
+ *     {strike, dip, dipDirection},
+ *     {rake, strikeDirection, typeOfMovement, trend: 0, trendIsDefined: false}
+ * )
  * ```
  */
 export class FaultHelper {
@@ -115,24 +124,51 @@ export class FaultHelper {
             dip: plane.dip
         })
 
-        if (striation.strikeDirection !== undefined) {
-            f.setStriation({
+        if ( !striation.trendIsDefined ) {
+            // The striation is defined by the rake and strike direction and not by the trend
+
+            if (( f.dip !== 90 ) && ( striation.rake !== 90 )) {
+                // General case
+                f.setStriationFromRake({
+                    typeOfMovement: striation.typeOfMovement, 
+                    rake: striation.rake, 
+                    strikeDirection: striation.strikeDirection,
+                })
+            }
+            else {
+                // Special case: vertical plane with vertical striation
+                f.setStriationForVerticalPlaneAndRake({
+                    strike: plane.strike, 
+                    dipDirection: plane.dipDirection, 
+                    strikeDirection: striation.strikeDirection,
+                    typeOfMovement: striation.typeOfMovement
+                })
+            }
+            // return {
+            //     nPlane: f.normal,
+            //     nStriation: f.striation,
+            //     nPerpStriation: f.e_perp_striation
+            // }
+            return f
+        } else {
+            // The striation is defined by the trend: the fault plane is not vertical (it may be horizontal or shallow dipping)
+            f.setStriationFromTrend({
                 typeOfMovement: striation.typeOfMovement, 
-                rake: striation.rake, 
-                strikeDirection: striation.strikeDirection,
-                // striationTrend: striation.trend
+                striationTrend: striation.trend, 
             })
 
-            return {
-                nPlane: f.normal,
-                nStriation: f.striation,
-                nPerpStriation: f.e_perp_striation
-            }
+            // return {
+            //     nPlane: f.normal,
+            //     nStriation: f.striation,
+            //     nPerpStriation: f.e_perp_striation
+            // }
+            return f
         }
 
-        return {
-            nPlane: f.normal
-        }
+        // ** In principle this return is not reached (??)
+        // return {
+        //     nPlane: f.normal
+        // }
     }
     
     get sphericalCoords() {
@@ -188,7 +224,7 @@ export class FaultHelper {
      * 2. For shallow-dipping planes (i.e., the compass inclinometer is inaccurate):
      *   Striae trend: [0, 360)
      */
-    setStriation(
+    private setStriationFromRake(
         {typeOfMovement, rake, strikeDirection}:
         {typeOfMovement: TypeOfMovement, rake: number, strikeDirection: Direction}): FaultHelper
     {
@@ -203,24 +239,502 @@ export class FaultHelper {
     }
 
     /**
-     * Special case for shallow angle plane.
+     * Special case for horizontal and shallow angle plane.
      */
-    setStriationShallowPlane(
+    private setStriationFromTrend(
         {typeOfMovement, striationTrend}:
         {typeOfMovement: TypeOfMovement, striationTrend: Direction}): FaultHelper
     {
         this.typeMov = typeOfMovement
         this.striationTrend = striationTrend
-        this.faultStriationAngle_A()
-        this.faultStriationAngle_B()
+
+        // Calculate the striation vector and check that it matches the type of movement
+        //  if the type of movement is undefined then the data may be duplicated and considered with two opposite striation directions **
+        let phi_striationTrend = 0
+        
+        if ( this.dip === 0) {
+            // The plane is horizontal: 
+            //      by convention, the striation trend points toward the direction of movement of the top block relative to the bottom block
+
+            // phi_striationTrend = angle indicating the direction of the horizontal vector pointing toward the striation trend 
+            //      phi_striationTrend is measured anticlockwise from the X axis in reference system S = (X, Y, Z) = (E, N, Up)
+            phi_striationTrend = Math.PI / 2 - deg2rad( this.striationTrend )
+            if (phi_striationTrend < 0) { phi_striationTrend = phi_striationTrend + 2 * Math.PI }
+
+            // nStriation = unit vector representing the striation in reference system S, which points toward the striation trend
+            this.nStriation[0] = Math.cos( phi_striationTrend )
+            this.nStriation[1] = Math.sin( phi_striationTrend )
+            this.nStriation[2] =   0
+            
+        } else {
+            // The plane has (in principle) a shallow dip (note that the striation trend is not defined for a vertical plane)
+
+            // phi_nStriationTrend = angle indicating the direction of the horizontal vector perpendicular to the striation trend 
+            //      phi_nStriationTrend is measured anticlockwise from the X axis in reference system S = (X, Y, Z) = (E, N, Up)
+            phi_striationTrend = 2 * Math.PI - deg2rad( this.striationTrend )
+
+            // nTrend = unit vector normal to the vertical plane that is parallel to the striation trend
+            this.nStriationTrend[0] = Math.cos( phi_striationTrend )
+            this.nStriationTrend[1] = Math.sin( phi_striationTrend )
+            this.nStriationTrend[2] =   0
+
+            // Calculate in reference system S the unit vector nStriation, which lies in the fault plane and in the vertical plane parallel to the trend.
+            // Thus, nStriation is perpendicular to nTrend and to normal (the normal to the fault plane), and can be calculated using the normalized cross product
+            this.nStriation = normalizedCrossProduct({U: this.normal, V: this.nStriationTrend} )
+
+            // nStriation should be oriented according to the movement of the hanging wall relative to the footwall:
+            // To test and invert (if necessary) the striation vector, the fault plane is subdivided in four Quadrants, 
+            //      by combinning two strike-slip with two dip-slip movements in the local reference system (e_phi, e_theta)
+
+            // StrikeSlipMov = strike slip movement: Left-Lateral in the direction of e_phi
+            //      Left-Lateral (LL): StrikeSlipMov > 0;       Right-Lateral (RL): StrikeSlipMov < 0
+            let StrikeSlipMov = scalarProduct({U: this.e_phi, V: this.nStriation})
+
+            // StrikeSlipMov = dip slip  movement: Normal in the direction of e_theta
+            //      Normal (N): DipSlipMov > 0;       Inverse (I): DipSlipMov < 0
+            let DipSlipMov = scalarProduct({U: this.e_theta, V: this.nStriation})
+
+            if ( Math.abs( DipSlipMov ) < this.EPS ) {
+                // The dip-slip component of movement is negligible and the type of movement is pure strike-slip
+
+                if ( StrikeSlipMov > 0 ) {
+                    // If the type of movement is Left-Lateral (LL) then the striation vector is correctly oriented;
+                    // If type of movement is right-lateral (RL) then the striation vector is inverted
+        
+                    if ( (this.typeMov !== TypeOfMovement.LL) && (this.typeMov !== TypeOfMovement.RL) && (this.typeMov !== TypeOfMovement.UND) ) {
+                        // Thus, the type of movement cannot be different from a strike-slip fault (LL, OR RL) - or it is undefined (UND)
+                        throw new Error(`Type of movement for data number xx is wrong. Cannot be this.typeMov`)
+
+                    } else if ( this.typeMov === TypeOfMovement.RL ) {
+                        // The direction of the striation vector is inverted to match the type of movement
+                        this.nStriation = constant_x_Vector({ k: -1, V: this.nStriation })
+                    }
+
+                } else if ( StrikeSlipMov < 0 ) {
+                    // If the type of movement is Right-Lateral (RL) then the striation vector is correctly oriented;
+                    // If type of movement is Left-lateral (LL) then the striation vector is inverted
+        
+                    if ( (this.typeMov !== TypeOfMovement.LL) && (this.typeMov !== TypeOfMovement.RL) && (this.typeMov !== TypeOfMovement.UND) ) {
+                        // Thus, the type of movement cannot be different from a strike-slip fault (LL, OR RL) - or it is undefined (UND)
+                        throw new Error(`Type of movement for data number xx is wrong. Cannot be this.typeMov`)
+
+                    } else if ( this.typeMov === TypeOfMovement.LL ) {
+                        // The direction of the striation vector is inverted to match the type of movement
+                        this.nStriation = constant_x_Vector({ k: -1, V: this.nStriation })
+                    }
+                }
+
+            } else if ( Math.abs( StrikeSlipMov ) < this.EPS) {
+                // The strike-slip component of movement is negligible and the type of movement is pure dip-slip
+                
+                if ( DipSlipMov > 0 ) {
+                    // If the type of movement is Normal (N) then the striation vector is correctly oriented;
+                    // If type of movement is Inverse (I) then the striation vector is inverted
+        
+                    if ( (this.typeMov !== TypeOfMovement.N) && (this.typeMov !== TypeOfMovement.I) && (this.typeMov !== TypeOfMovement.UND) ) {
+                        // Thus, the type of movement cannot be different from a dip-slip fault (N, OR I) - or it is undefined (UND)
+                        throw new Error(`Type of movement for data number xx is wrong. Cannot be this.typeMov`)
+
+                    } else if ( this.typeMov === TypeOfMovement.I ) {
+                        // The direction of the striation vector is inverted to match the type of movement
+                        this.nStriation = constant_x_Vector({ k: -1, V: this.nStriation })
+                    }
+
+                } else if ( DipSlipMov < 0 ) {
+                    // If the type of movement is Inverse (I) then the striation vector is correctly oriented;
+                    // If type of movement is Normal (N) then the striation vector is inverted
+        
+                    if ( (this.typeMov !== TypeOfMovement.N) && (this.typeMov !== TypeOfMovement.I) && (this.typeMov !== TypeOfMovement.UND) ) {
+                        // Thus, the type of movement cannot be different from a dip-slip fault (N, OR I) - or it is undefined (UND)
+                        throw new Error(`Type of movement for data number xx is wrong. Cannot be this.typeMov`)
+
+                    } else if ( this.typeMov === TypeOfMovement.N ) {
+                        // The direction of the striation vector is inverted to match the type of movement
+                        this.nStriation = constant_x_Vector({ k: -1, V: this.nStriation })
+                    }
+                }
+
+            } else {
+                // The type of movement combines both a dip-slip and a strike-slip component
+                // Note that the striation can be oriented in two opposite directions depending on the type of movement
+
+                if ( (StrikeSlipMov > 0) && (DipSlipMov > 0) ) {
+                    // Quadrant 1: Striation combines left-lateral and normal components
+                    // If the type of movement combines a Normal and a Left-Lateral component (N, N_LL, or LL) then the striation vector is correctly oriented:
+                    //      i.e., nStriation is located in Quadrant 1 consistently with the type of movement;
+                    // If the type of movement combines an Inverse and a Right-Lateral component (I, I_RL, or RL) then the striation vector is inverted:
+                    //      i.e., nStriation should be located in Quadrant 3 and not in Quadrant 1
+        
+                    if (this.typeMov !== TypeOfMovement.UND) {
+                        // The type of movement is not undefined
+                    
+                        if ( (this.typeMov === TypeOfMovement.N_RL) || (this.typeMov === TypeOfMovement.I_LL) ) {
+                            // Note that the type of movement cannot be (N_RL, or I_LL), in which case the striation would be located in Quadrants 2 or 4
+                            throw new Error(`Type of movement for data number xx is wrong. Cannot be this.typeMov`)
+
+                        } else if ( (this.typeMov === TypeOfMovement.I) || (this.typeMov === TypeOfMovement.I_RL) || (this.typeMov === TypeOfMovement.RL) ) {
+                            // The direction of the striation vector has to be inverted to match the type of movement
+                            this.nStriation = constant_x_Vector({ k: -1, V: this.nStriation })
+                        }
+                    }
+
+                } else if ((StrikeSlipMov < 0) && (DipSlipMov > 0)) {
+                    // Quadrant 2: type of movement combines right-lateral and normal movement
+                    // If the type of movement combines a Normal and a Right-Lateral component (N, N_RL, or RL) then the striation vector is correctly oriented:
+                    //      i.e., nStriation is located in Quadrant 2 consistently with the type of movement;
+                    // If the type of movement combines an Inverse and a Left-Lateral component (I, I_LL, or LL) then the striation vector is inverted:
+                    //      i.e., nStriation should be located in Quadrant 4 and not in Quadrant 2
+         
+                    if (this.typeMov !== TypeOfMovement.UND) {
+                        // The type of movement is not undefined
+                    
+                        if ( (this.typeMov === TypeOfMovement.N_LL) || (this.typeMov === TypeOfMovement.I_RL) ) {
+                            // Thus, the type of movement cannot be (N_LL, or I_RL), in which case the striation would be located in Quadrants 1 or 3
+                            throw new Error(`Type of movement for data number xx is wrong. Cannot be this.typeMov`)
+
+                        } else if ( (this.typeMov === TypeOfMovement.I) || (this.typeMov === TypeOfMovement.I_LL) || (this.typeMov === TypeOfMovement.LL) ) {
+                            // The direction of the striation vector has to be inverted to match the type of movement
+                            this.nStriation = constant_x_Vector({ k: -1, V: this.nStriation })
+                        }
+                    }
+
+                } else if ((StrikeSlipMov < 0) && (DipSlipMov < 0)) {
+                    // Quadrant 3: type of movement combines right-lateral and an inverse movement
+                    // If the type of movement combines a Inverse and a Right-Lateral component (I, I_RL, or RL) then the striation vector is correctly oriented:
+                    //      i.e., nStriation is located in Quadrant 3 consistently with the type of movement;
+                    // If the type of movement combines an Normal and a Left-Lateral component (N, N_LL, or LL) then the striation vector is inverted:
+                    //      i.e., nStriation should be located in Quadrant 1 and not in Quadrant 3
+        
+                    if (this.typeMov !== TypeOfMovement.UND) {
+                            // The type of movement is not undefined
+                        
+                        if ( (this.typeMov === TypeOfMovement.N_RL) || (this.typeMov === TypeOfMovement.I_LL) ) {
+                            // Thus, the type of movement cannot be (N_RL, or I_LL), in which case the striation would be located in Quadrants 2 or 4
+                            throw new Error(`Type of movement for data number xx is wrong. Cannot be this.typeMov`)
+
+                        } else if ( (this.typeMov === TypeOfMovement.N) || (this.typeMov === TypeOfMovement.N_LL) || (this.typeMov === TypeOfMovement.LL) ) {
+                            // The direction of the striation vector has to be inverted to match the type of movement
+                            this.nStriation = constant_x_Vector({ k: -1, V: this.nStriation })
+                        }
+                    }
+
+                } else if ((StrikeSlipMov > 0) && (DipSlipMov < 0)) {
+                    // Quadrant 4: type of movement combines left-lateral and an inverse movement
+                    // If the type of movement combines a Inverse and a Left-Lateral component (I, I_LL, or LL) then the striation vector is correctly oriented:
+                    //      i.e., nStriation is located in Quadrant 4 consistently with the type of movement;
+                    // If the type of movement combines an Normal and a Right-Lateral component (N, N_RL, or RL) then the striation vector is inverted:
+                    //      i.e., nStriation should be located in Quadrant 2 and not in Quadrant 4
+        
+                    if (this.typeMov !== TypeOfMovement.UND) {
+                        // The type of movement is not undefined
+                
+                        if ( (this.typeMov === TypeOfMovement.N_LL) || (this.typeMov === TypeOfMovement.I_RL) ) {
+                            // Thus, the type of movement cannot be (N_LL, or I_RL), in which case the striation would be located in Quadrants 1 or 3
+                            throw new Error(`Type of movement for data number xx is wrong. Cannot be this.typeMov`)
+
+                        } else if ( (this.typeMov === TypeOfMovement.N) || (this.typeMov === TypeOfMovement.N_RL) || (this.typeMov === TypeOfMovement.RL) ) {
+                            // The direction of the striation vector has to be inverted to match the type of movement
+                            this.nStriation = constant_x_Vector({ k: -1, V: this.nStriation })
+                        }
+                    }
+                } 
+            }
+        }
+        // Calculate in reference system S the unit vector e_perp_striation_ located on the fault plane and perpendicular to the striation.
+        // This vector is necessary for calculating the misfit angle for criteria involving friction.
+        // The local coord system (e_striation_, e_perp_striation_, normal) is right handed
+        this.e_perp_striation_ = crossProduct({U: this.normal, V:this.e_striation_})
 
         return this
     }
 
-    // TODO
-    setStriationForVerticalPlane() {
+    private setStriationForVerticalPlaneAndRake(
+        {typeOfMovement, strike, strikeDirection, dipDirection}:
+        {typeOfMovement: TypeOfMovement, strike: number, strikeDirection: Direction, dipDirection: Direction}
+    ) {
 
-    }
+        // This method calculates in reference system S the unit vector e_striation pointing toward the measured striation
+          
+        // Special case: Vertical plane with vertical striation
+        // In such case the dip direction has a different meaning: it points in the direction of the uplifted block
+
+        //      The unit vector e_phi is is parallel to the strike of the fault plane, and is oriented such that e_theta x e_phi = e_r (where x is the cross porduct )
+        //      The azimuthal angle phi is chosen in the direction of the fault dip (note that phi is different from the azimuth of the fault plane measured in the field)
+        
+        // The unit normal vector nPlane = e_r points in the direction of the "outer block"
+
+        this.strike = strike
+        this.strikeDirection = strikeDirection
+        this.typeMov = typeOfMovement
+        this.dipDirection = dipDirection
+
+        if ( this.strike === 0 ) {
+            // Spherical coords in reference system S (method faultSphericalCoords): (phi, theta) = (PI, PI / 2)
+            // The unit normal vector nPlane is defined from spherical coords (phi, theta) in reference system S; 
+            // nPlane points West
+
+            if ( (this.strikeDirection !== Direction.N) && (this.strikeDirection !== Direction.S) && (this.strikeDirection !== Direction.UND) ) {
+                throw new Error(`Strike direction this.strikeDirection for measuring the rake is wrong. Should be N, S, or UND`)
+            }
+
+            if ( (this.dipDirection !== Direction.E) && (this.dipDirection !== Direction.W) ) {
+                // Vertical plane with vertical striation: the dip direction has a different meaning: it points in the direction of the uplifted block
+                throw new Error(`Special case: vertical plane with vertical striation: Dip direction points toward the uplifted bock and should be E or W`)
+            }
+
+            // Calculate the striation vector
+
+            if (this.dipDirection === Direction.W) {
+                // nPlane and the dip direction point in the same direction (West)
+                // Thus, the uplifted block is located in the direction of nPlane (outward block)
+                // The striation vector idicates relative movement of the 'outward block' relative to the 'inner block'.
+                // Thus e_striation_ points upward
+                this.e_striation_[0] = 0
+                this.e_striation_[1] = 0
+                this.e_striation_[2] = 1
+
+            } else {
+                // nPlane and the dip direction point in opposite directions:: dipDirection = E
+                // Thus e_striation_ points downward
+                this.e_striation_[0] =  0
+                this.e_striation_[1] =  0
+                this.e_striation_[2] = -1
+            } 
+
+        } else if ( this.strike < 90 ) {
+            // phi = PI - strike
+            // nPlane points NW, N, or W toward the 'outer block'; thus the 'inner block' is located SE, S, or E
+
+            if ( (this.strikeDirection === Direction.SE) || (this.strikeDirection === Direction.NW) ) {
+                throw new Error(`Strike direction this.strikeDirection for measuring the rake is wrong. It cannot be SE or NW`)
+            }
+
+            if ( (this.dipDirection === Direction.SW) || (this.dipDirection === Direction.NE) || (this.dipDirection === Direction.UND) ) {
+                // Vertical plane with vertical striation: the dip direction has a different meaning: it points in the direction of the uplifted block
+                throw new Error(`Special case: vertical plane with vertical striation: dip direction this.dipDirection is wrong. It should point toward the uplifted block: please set consistent dip direction`)
+            }
+
+            // Calculate the striation vector
+
+            if ( (this.dipDirection === Direction.NW) || (this.dipDirection === Direction.N) || (this.dipDirection === Direction.W ) ) {
+                // nPlane and the dip direction point in the same direction (NW, N, or W). 
+                // Thus, the uplifted block corresponds to the outward block
+                // The striation vector idicates relative movement of the 'outward block' relative to the 'inner block', and e_striation_ points upward
+                this.e_striation_[0] = 0
+                this.e_striation_[1] = 0
+                this.e_striation_[2] = 1
+
+            } else {
+                // nPlane and the dip direction point in opposite directions: dipDirection = SE, S, or E
+                // Thus, the uplifted block corresponds to the inner block, and e_striation_ points downward
+                this.e_striation_[0] =  0
+                this.e_striation_[1] =  0
+                this.e_striation_[2] = -1
+            } 
+   
+        } else if ( this.strike === 90 ) {
+            // Spherical coords in reference system S (method faultSphericalCoords): (phi, theta) = (PI / 2, PI / 2)
+            // The unit normal vector nPlane is defined from spherical coords (phi, theta) in reference system S; 
+            // nPlane points North
+
+            if ( (this.strikeDirection !== Direction.E) && (this.strikeDirection !== Direction.W) && (this.strikeDirection !== Direction.UND) ) {
+                throw new Error(`Strike direction this.strikeDirection for measuring the rake is wrong. Should be N, S, or UND`)
+            }
+
+            if ( (this.dipDirection !== Direction.N) && (this.dipDirection !== Direction.S) ) {
+                // Vertical plane with vertical striation: the dip direction has a different meaning: it points in the direction of the uplifted block
+                throw new Error(`Special case: vertical plane with vertical striation: Dip direction points toward the uplifted bock and should be N or S`)
+            }
+
+            // Calculate the striation vector
+
+            if (this.dipDirection === Direction.N) {
+                // nPlane and the dip direction point in the same direction (North)
+                // Thus, the uplifted block is located in the direction of nPlane (outward block)
+                // The striation vector idicates relative movement of the 'outward block' relative to the 'inner block'.
+                // Thus e_striation_ points upward
+                this.e_striation_[0] = 0
+                this.e_striation_[1] = 0
+                this.e_striation_[2] = 1
+
+            } else {
+                // nPlane and the dip direction point in opposite directions: dipDirection = S
+                // Thus e_striation_ points downward
+                this.e_striation_[0] =  0
+                this.e_striation_[1] =  0
+                this.e_striation_[2] = -1
+            } 
+
+        } else if ( this.strike < 180 ) {
+            // phi = PI - strike
+            // nPlane points NE, N, or E toward the 'outer block'; thus the 'inner block' is located SW, S, or W
+
+            if ( (this.strikeDirection === Direction.SW) || (this.strikeDirection === Direction.NE) ) {
+                throw new Error(`Strike direction this.strikeDirection for measuring the rake is wrong. It cannot be SW or NE`)
+            }
+
+            if ( (this.dipDirection === Direction.SE) || (this.dipDirection === Direction.NW) || (this.dipDirection === Direction.UND ) ) {
+                // Vertical plane with vertical striation: the dip direction has a different meaning: it points in the direction of the uplifted block
+                throw new Error(`Special case: vertical plane with vertical striation: dip direction this.dipDirection is wrong. It should point toward the uplifted block: please set consistent dip direction`)
+            }
+
+            // Calculate the striation vector
+
+            if ( (this.dipDirection === Direction.NE) || (this.dipDirection === Direction.N) || (this.dipDirection === Direction.E)  ) {
+                // nPlane and the dip direction point in the same direction (NE, N, or E). 
+                // Thus, the uplifted block corresponds to the outward block
+                // The striation vector idicates relative movement of the 'outward block' relative to the 'inner block', and e_striation_ points upward
+                this.e_striation_[0] = 0
+                this.e_striation_[1] = 0
+                this.e_striation_[2] = 1
+
+            } else {
+                // nPlane and the dip direction point in opposite directions: dipDirection = SW, S, or W 
+                // Thus, the uplifted block corresponds to the inner block, and e_striation_ points downward
+                this.e_striation_[0] =  0
+                this.e_striation_[1] =  0
+                this.e_striation_[2] = -1
+            } 
+               
+        } else if ( this.strike === 180 ) {
+            // Spherical coords in reference system S (method faultSphericalCoords): (phi, theta) = (PI, PI / 2)
+            // The unit normal vector nPlane is defined from spherical coords (phi, theta) in reference system S; 
+            // nPlane points East
+
+            if ( (this.strikeDirection !== Direction.N) && (this.strikeDirection !== Direction.S) && (this.strikeDirection !== Direction.UND) ) {
+                throw new Error(`Strike direction this.strikeDirection for measuring the rake is wrong. Should be N, S, or UND`)
+            }
+
+            if ( (this.dipDirection !== Direction.E) && (this.dipDirection !== Direction.W) ) {
+                // Vertical plane with vertical striation: the dip direction has a different meaning: it points in the direction of the uplifted block
+                throw new Error(`Special case - vertical plane with vertical striation - Dip direction points toward the uplifted bock and should be E or W`)
+            }
+
+            // Calculate the striation vector
+
+            if (this.dipDirection === Direction.E) {
+                // nPlane and the dip direction point in the same direction (East)
+                // Thus, the uplifted block is located in the direction of nPlane (outward block)
+                // The striation vector idicates relative movement of the 'outward block' relative to the 'inner block'.
+                // Thus e_striation_ points upward
+                this.e_striation_[0] = 0
+                this.e_striation_[1] = 0
+                this.e_striation_[2] = 1
+
+            } else {
+                // nPlane and the dip direction point in opposite directions: dipDirection = W
+                // Thus e_striation_ points downward
+                this.e_striation_[0] =  0
+                this.e_striation_[1] =  0
+                this.e_striation_[2] = -1
+            } 
+
+        } else if ( this.strike < 270 ) {
+            // phi = 3 PI - strike
+            // nPlane points SE, S, or E toward the 'outer block'; thus the 'inner block' is located NW, N, or W
+
+            if ( (this.strikeDirection === Direction.SE) || (this.strikeDirection === Direction.NW) ) {
+                throw new Error(`Strike direction this.strikeDirection for measuring the rake is wrong. It cannot be SE nor NW`)
+            }
+
+            if ( (this.dipDirection === Direction.NE) || (this.dipDirection === Direction.SW) || (this.dipDirection === Direction.UND) ) {
+                // Vertical plane with vertical striation: the dip direction has a different meaning: it points in the direction of the uplifted block
+                //**throw new Error(`Special case - vertical plane with vertical striation: dip direction dipDirection is wrong  It should point toward the uplifted block: please set consistent dip direction`)
+            }
+
+            // Calculate the striation vector
+
+            if ( (this.dipDirection === Direction.SE) || (this.dipDirection === Direction.S) || (this.dipDirection === Direction.E) ) {
+                // nPlane and the dip direction point in the same direction (SE, S, or E). 
+                // Thus, the uplifted block corresponds to the outward block
+                // The striation vector idicates relative movement of the 'outward block' relative to the 'inner block', and e_striation_ points upward
+                this.e_striation_[0] = 0
+                this.e_striation_[1] = 0
+                this.e_striation_[2] = 1
+
+            } else {
+                // nPlane and the dip direction point in opposite directions: dipDirection = NW, N, or W
+                // Thus, the uplifted block corresponds to the inner block, and e_striation_ points downward
+                this.e_striation_[0] =  0
+                this.e_striation_[1] =  0
+                this.e_striation_[2] = -1
+            } 
+               
+        } else if ( this.strike === 270 ) {
+            // Spherical coords in reference system S (method faultSphericalCoords): (phi, theta) = (3 PI / 2, PI / 2)
+            // The unit normal vector nPlane is defined from spherical coords (phi, theta) in reference system S; 
+            // nPlane points South
+
+            if ( (this.strikeDirection !== Direction.E) && (this.strikeDirection !== Direction.W) && (this.strikeDirection !== Direction.UND) ) {
+                throw new Error(`Strike direction this.strikeDirection for measuring the rake is wrong. Should be E, W, or UND`)
+            }
+
+            if ( (this.dipDirection !== Direction.N) && (this.dipDirection !== Direction.S) ) {
+                // Vertical plane with vertical striation: the dip direction has a different meaning: it points in the direction of the uplifted block
+                //**throw new Error(`Special case - vertical plane with vertical striation: Dip direction points toward the uplifted bock and should be N or S`)
+            }
+
+            // Calculate the striation vector
+
+            if (this.dipDirection === Direction.S) {
+                // nPlane and the dip direction point in the same direction (South)
+                // Thus, the uplifted block is located in the direction of nPlane (outward block)
+                // The striation vector idicates relative movement of the 'outward block' relative to the 'inner block'.
+                // Thus e_striation_ points upward
+                this.e_striation_[0] = 0
+                this.e_striation_[1] = 0
+                this.e_striation_[2] = 1
+
+            } else {
+                // nPlane and the dip direction point in opposite direction: dipDirection = N
+                // Thus e_striation_ points downward
+                this.e_striation_[0] =  0
+                this.e_striation_[1] =  0
+                this.e_striation_[2] = -1
+            } 
+
+        } else if ( this.strike < 360 ) {
+            // phi = 3 PI - strike
+            // nPlane points SW, S, or W toward the 'outer block'; thus the 'inner block' is located NE, N, or E
+
+            if ( (this.strikeDirection === Direction.SW) || (this.strikeDirection === Direction.NE) ) {
+                throw new Error(`Strike direction this.strikeDirection for measuring the rake is wrong. It cannot be SW nor NE`)
+            }
+
+            if ( (this.dipDirection === Direction.SE) || (this.dipDirection === Direction.NW) || (this.dipDirection === Direction.UND) ) {
+                // Vertical plane with vertical striation: the dip direction has a different meaning: it points in the direction of the uplifted block
+                //**throw new Error(`Special case: vertical plane with vertical striation: dip direction this.dipDirection is wrong. It should point toward the uplifted block: please set consistent dip direction`)
+            }
+
+            // Calculate the striation vector
+
+            if ( (this.dipDirection === Direction.SW) || (this.dipDirection === Direction.S) || (this.dipDirection === Direction.W) ) {
+                // nPlane and the dip direction point in the same direction (SW, S, or W). 
+                // Thus, the uplifted block corresponds to the outward block
+                // The striation vector idicates relative movement of the 'outward block' relative to the 'inner block', and e_striation_ points upward
+                this.e_striation_[0] = 0
+                this.e_striation_[1] = 0
+                this.e_striation_[2] = 1
+
+            } else {
+                // nPlane and the dip direction point in opposite directions: : dipDirection = NE, N, or E
+                // Thus, the uplifted block corresponds to the inner block, and e_striation_ points downward
+                this.e_striation_[0] =  0
+                this.e_striation_[1] =  0
+                this.e_striation_[2] = -1
+            } 
+        } else {
+            // In principle the range of the strike angle has already been checked
+            throw new Error(`Strike this.strike is out of range (0,360)`)
+        }
+
+        // Calculate in reference system S the unit vector e_perp_striation_ located on the fault plane and perpendicular to the striation.
+        // This vector is necessary for calculating the misfit angle for criteria involving friction.
+        // The local coord system (e_striation_, e_perp_striation_, normal) is right handed **
+        this.e_perp_striation_ = crossProduct({U: this.normal, V:this.e_striation_})  // this.normal or this.normal_
+
+        //return
+    }       
 
     // ------------------------------ PRIVATE
 
@@ -230,7 +744,7 @@ export class FaultHelper {
         //      Fault strike: clockwise angle measured from the North direction [0, 360)
         //      Fault dip: [0, 90]
         //      Dip direction: (N, E, S, W) or a combination of two directions (NE, SE, SW, NW).
-        //          For horizontal planes and vertical planes with oblique rake th edip direction is undefined
+        //          For horizontal planes and vertical planes with oblique rake the dip direction is undefined
         //          For vertical planes with vertical striations the dip Direction has a different meaning: it points toward the uplifted block (particular case)
     
         // (phi,theta) : spherical coordinate angles defining the unit vector perpendicular to the fault plane (pointing upward)
@@ -369,6 +883,17 @@ export class FaultHelper {
         // normal: unit vector normal to the fault plane (pointing upward) defined in the geographic reference system: S = (X,Y,Z)
         this.normal_ = spherical2unitVectorCartesian(this.coordinates)
 
+        // e_phi = unit vector parallel to the strike of the fault plane
+        this.e_phi[0] = - Math.sin( this.coordinates.phi )
+        this.e_phi[1] =   Math.cos( this.coordinates.phi )
+        this.e_phi[2] =   0
+
+        // e_theta = unit vector parallel to the dip of the fault plane
+        this.e_theta[0] =   Math.cos(this.coordinates.theta) * Math.cos( this.coordinates.phi )
+        this.e_theta[1] =   Math.cos(this.coordinates.theta) * Math.sin( this.coordinates.phi )
+        this.e_theta[2] = - Math.sin( this.coordinates.theta )
+
+
         // --------------------------------------        
     }
 
@@ -394,24 +919,26 @@ export class FaultHelper {
     
         // alphaStria : striation angle measured in the local reference plane (e_phi, e_theta) indicating the motion of the outward block
         //      alphaStria is measured clockwise from e_phi, in interval [0, 2 PI) (this choice is consistent with the definition of the rake, which is measured from the fault strike)
-        this.e_phi[0] = - Math.sin( this.coordinates.phi )
-        this.e_phi[1] =   Math.cos( this.coordinates.phi )
-        this.e_phi[2] =   0
-
-        this.e_theta[0] =   Math.cos(this.coordinates.theta) * Math.cos( this.coordinates.phi )
-        this.e_theta[1] =   Math.cos(this.coordinates.theta) * Math.sin( this.coordinates.phi )
-        this.e_theta[2] = - Math.sin( this.coordinates.theta )
-
+  
         // V[0] = Math.sin(this.coordinates.theta) * Math.cos( this.coordinates.phi )
         // V[1] = Math.sin(this.coordinates.theta) * Math.sin( this.coordinates.phi )
         // V[2] = Math.cos(this.coordinates.theta)
     
         // if structure for calculating the striation angle in the local reference frame in polar coordinates from the rake:
 
+        // The special case in which the plane and rake are vertical is treated separately in method setStriationForVerticalPlaneAndRake: the dip direction points toward the uplifted block
+
         // The following 'if structure' calculates phi from the strike and dip direction (if defined) of the fault plane:
-        if ( this.dip === 90 ) {
-            // The fault plane is vertical and the dip direction is undefined (UND)
-    
+
+        if ( (this.rake === 90) && (this.strikeDirection === Direction.UND) ) {
+            // If the rake is 90 then the strike direction may be undefined.
+            // In this particular case, the orientation of the striation angle is PI / 2 (this value may be modified in method faultStriationAngle_B depending on the type of movement)
+            this.alphaStriaDeg = 90           
+            this.alphaStria = Math.PI / 2
+
+        } else if ( this.dip === 90 ) {
+            // The fault plane is vertical, and the rake is oblique (rake =/= 90)
+
             if ( this.strike === 0 ) {
                 // phi = PI
                 if (this.strikeDirection === Direction.N) {
@@ -421,6 +948,7 @@ export class FaultHelper {
                     this.alphaStriaDeg = this.rake           
                     this.alphaStria = deg2rad( this.rake )
                 } else {
+                    // If the rake =/= 90 then the strike direction is N or S
                     throw new Error(`Strike direction for measuring the rake is wrong. Should be N or S`)
                 } 
             } else if ( this.strike < 90 ) {
@@ -443,7 +971,7 @@ export class FaultHelper {
                     this.alphaStriaDeg = this.rake           
                     this.alphaStria = deg2rad( this.rake )
                 } else {
-                    throw new Error(`Strike direction for measuring the rake is wrong. Should be E or W`)
+                    throw new Error(`Strike direction for measuring the rake is wrong. Should be E, or W`) 
                 } 
             } else if ( this.strike < 180 ) {
                 // phi = PI - strike
@@ -516,15 +1044,17 @@ export class FaultHelper {
                 // This case should not occur since in principle strike < 360
                 throw new Error(`fault strike is out of the expected interval [0,360)`)
             }
-        } else {      // The fault plane is not vertical and the dip direction is defined
+
+        } else {    // The fault plane is not vertical (nor horizontal) and the dip direction is defined
+                    // the special case of a horizontal plane is treated in method setStriationFromTrend
     
             if ( this.strike === 0 ) {
                 if ( this.dipDirection === Direction.E ) {    
                     if (this.strikeDirection === Direction.N) {
-                        this.alphaStriaDeg = this.rake          // For testing the sense of mouvement of faults 
+                        this.alphaStriaDeg = this.rake          // For testing the type of mouvement of faults 
                         this.alphaStria = deg2rad( this.rake )
                     } else if (this.strikeDirection === Direction.S) {
-                        this.alphaStriaDeg = 180 - this.rake    // For testing the sense of mouvement of faults
+                        this.alphaStriaDeg = 180 - this.rake    // For testing the type of mouvement of faults
                         this.alphaStria = Math.PI - deg2rad( this.rake )
                     } else {
                         throw new Error(`Strike direction for measuring the rake is wrong. Should be N or S`)
@@ -754,7 +1284,7 @@ export class FaultHelper {
         // This function is called after function faultStriationAngle_A
         // We calculate a unit vector e_striation pointing toward the measured striation
     
-        // Sense of mouvement: For verification purposes, it is recommended to indicate both the dip-slip and strike-slip compoenents, when possible. 
+        // Type of mouvement: For verification purposes, it is recommended to indicate both the dip-slip and strike-slip compoenents, when possible. 
         //      Dip-slip component:
         //          N = Normal fault, 
         //          I = Inverse fault or thrust
@@ -762,14 +1292,14 @@ export class FaultHelper {
         //          RL = Right-Lateral fault
         //          LL = Left-Lateral fault
     
-        // Sense of mouvement: N, I, RL, LL, N-RL, N-LL, I-RL, I-LL
+        // Type of mouvement: N, I, RL, LL, N-RL, N-LL, I-RL, I-LL
     
         // this.alphaStriaDeg is in interval [0,180] according to function faultStriationAngle_A; 
         // This angle indicates the mouvement of the top (outward) block relative to the bottom (inner) block 
     
-        // 'if structure' that modifies when required the striation angle according to the sense of mouvement of faults:
+        // 'if structure' that modifies when required the striation angle according to the type of mouvement of faults:
     
-        if ( this.dip=== 90 ) {
+        if ( this.dip === 90 ) {
             // The fault plane is vertical and only the strike-slip component of motion is defined
             // alphaStriaDeg calculated in function faultStriationAngle_B is in interval [0,PI]
     
@@ -780,10 +1310,12 @@ export class FaultHelper {
                     this.alphaStriaDeg += 180
                     this.alphaStria += Math.PI           
                 } else if ( this.typeMov != TypeOfMovement.LL) {
-                    throw new Error(`sense of mouvement is not consistent with fault data. Should be RL or LL`)
+                    throw new Error(`type of mouvement is not consistent with fault data. Should be RL or LL`)
                 }
             } else if ( this.alphaStriaDeg === 90 ) {   // Pure dip-slip mouvement
-                // note that if alphaStriaDeg = 90 then the fault only has a dip-slip component and the direction of the uplifted block is requested 
+                // Note that if alphaStriaDeg = 90 then the fault only has a dip-slip component and the direction of the uplifted block is requested 
+                // In principle this code line is never reached since this special case is treated in method setStriationForVerticalPlaneAndRake,
+                // which is called in method create()
                 this.faultStriationUpliftedBlock()
     
             } else if (this.alphaStriaDeg <= 180) {   
@@ -793,7 +1325,7 @@ export class FaultHelper {
                     this.alphaStriaDeg += 180
                     this.alphaStria += Math.PI           
                 } else if ( this.typeMov != TypeOfMovement.RL) {
-                    throw new Error(`sense of mouvement is not consistent with fault data. Should be RL or LL`)
+                    throw new Error(`type of mouvement is not consistent with fault data. Should be RL or LL`)
                 }
             } else {  
                 throw new Error(`calculated striation alphaStriaDeg should be in interval [0,180]. Check routine faultStriationAngle_A`)
@@ -808,7 +1340,7 @@ export class FaultHelper {
                     this.alphaStriaDeg = 180        // Striation values are recalculated
                     this.alphaStria = Math.PI           
                 } else if ( this.typeMov != TypeOfMovement.LL) {
-                    throw new Error(`sense of mouvement is not consistent with fault data. Should be RL or LL`)
+                    throw new Error(`type of mouvement is not consistent with fault data. Should be RL or LL`)
                 }
             } else if (this.alphaStriaDeg < 90) {   // Strike-slip and dip slip mouvement
                 // 0 < alphaStriaDeg < 90 means that the fault is normal-left-lateral
@@ -816,7 +1348,7 @@ export class FaultHelper {
                     this.alphaStriaDeg += 180
                     this.alphaStria += Math.PI    
                 } else if ( (this.typeMov !== TypeOfMovement.LL) && (this.typeMov !== TypeOfMovement.N) && (this.typeMov !== TypeOfMovement.N_LL) ) {
-                    throw new Error(`sense of mouvement is not consistent with fault data. Should be LL or N or N-LL or RL or I or I-RL`)
+                    throw new Error(`type of mouvement is not consistent with fault data. Should be LL or N or N-LL or RL or I or I-RL`)
                 }       
             } else if ( this.alphaStriaDeg === 90 ) {   // Pure dip-slip mouvement
                 // alphaStriaDeg = 90 means that the fault is normal
@@ -825,7 +1357,7 @@ export class FaultHelper {
                     this.alphaStriaDeg = 270        // Striation values are recalculated
                     this.alphaStria = 3 * Math.PI / 2           
                 } else if ( this.typeMov != TypeOfMovement.N) {
-                    throw new Error(`sense of mouvement is not consistent with fault data. Should be N or I`)
+                    throw new Error(`type of mouvement is not consistent with fault data. Should be N or I`)
                 }
             } else if (this.alphaStriaDeg < 180) {   // Strike-slip and dip slip mouvement
                 // 90 < alphaStriaDeg < 180 means that the fault is normal-right-lateral
@@ -833,7 +1365,7 @@ export class FaultHelper {
                     this.alphaStriaDeg += 180
                     this.alphaStria += Math.PI           
                 } else if ( (this.typeMov != TypeOfMovement.RL) && (this.typeMov != TypeOfMovement.N) && (this.typeMov === TypeOfMovement.N_RL) ) {
-                    throw new Error(`sense of mouvement is not consistent with fault data. Should be LL or I or I-LL or RL or N or N-RL`)
+                    throw new Error(`type of mouvement is not consistent with fault data. Should be LL or I or I-LL or RL or N or N-RL`)
                 }       
             } else if ( this.alphaStriaDeg === 180 ) {   // Pure strike-slip mouvement
                 // alphaStriaDeg = 180 means that the fault is right-lateral
@@ -842,7 +1374,7 @@ export class FaultHelper {
                     this.alphaStriaDeg = 0        // Striation values are recalculated
                     this.alphaStria = 0          
                 } else if ( this.typeMov != TypeOfMovement.RL) {
-                    throw new Error(`sense of mouvement is not consistent with fault data. Should be RL or LL`)
+                    throw new Error(`type of mouvement is not consistent with fault data. Should be RL or LL`)
                 }
             } else {  
                 throw new Error(`calculated striation alphaStriaDeg should be in interval [0,180]. Check routine faultStriationAngle_A`)
@@ -854,98 +1386,102 @@ export class FaultHelper {
         this.e_striation_[1] = Math.cos( this.alphaStria ) * this.e_phi[1] + Math.sin( this.alphaStria ) * this.e_theta[1]
         this.e_striation_[2] = Math.cos( this.alphaStria ) * this.e_phi[2] + Math.sin( this.alphaStria ) * this.e_theta[2]
 
-        // Calculate in reference system S the unit vector e_perp_striation_ located on the fault plane and perpendiculat to the striation.
-        // This vector is necessary for calculating the misfit angle for criterai involving friction.
+        // Calculate in reference system S the unit vector e_perp_striation_ located on the fault plane and perpendicular to the striation.
+        // This vector is necessary for calculating the misfit angle for criteria involving friction.
         // The local coord system (e_striation_, e_perp_striation_, normal) is right handed
-        this.e_perp_striation_ = crossProduct({U: this.normal, V:this.e_striation_})
+        this.e_perp_striation_ = crossProduct({U: this.normal, V:this.e_striation_})  // .normal or this.normal_
     }
 
     private faultStriationUpliftedBlock(): void {
-        // The fault plane is vertical and the rake is 90°: this.dip = 90, this.rake = 90, this.alphaStriaDeg = 90
-    
-        //Thus, the striation is defined by an additional parameter: 
-        
-        // To calculate the orientation of the striation the user must indicate for example the direction of the uplifted block:
-        //      upLiftedBlock: (N, E, S, W) or a combination of two directions (NE, SE, SW, NW)
+        //  Special case: The fault plane is vertical and the rake is 90°: this.dip = 90, this.rake = 90, this.alphaStriaDeg = 90
+
+        // This method is currently replaced by method setStriationForVerticalPlaneAndRake, which is specific to this special case,
+        // in which the dip direction has a different meaning: it points toward the uplifted block.
+
+        // Nevertheless, method faultStriationUpliftedBlock, which cas called in faultStriationAngle_B, works properly.
+            
+        // To calculate the orientation of the striation the user must specify an additional parameter indicating the direction of the uplifted block:
+        // Thus, in this special case the dip direction is interpreted differently and points toward the uplifted block
+        //      dipDirection: (N, E, S, W) or a combination of two directions (NE, SE, SW, NW)
     
         if ( this.strike === 0 ) {
     
-            if ( this.upliftedBlock === Direction.W ) { 
+            if ( this.dipDirection === Direction.W ) { 
                 this.alphaStriaDeg = 270
                 this.alphaStria = 3 * Math.PI / 2                     
-            } else if (this.upliftedBlock !== Direction.E) {
+            } else if (this.dipDirection !== Direction.E) {
                 throw new Error(`The orientation of the uplifted block is wrong. Should be E or W`)
             }
             
         } else if ( this.strike < 90 ){
     
-            if ( ( this.upliftedBlock === Direction.N ) || ( this.upliftedBlock === Direction.W ) || ( this.upliftedBlock === Direction.NW ) ) {
+            if ( ( this.dipDirection === Direction.N ) || ( this.dipDirection === Direction.W ) || ( this.dipDirection === Direction.NW ) ) {
                 this.alphaStriaDeg = 270
                 this.alphaStria = 3 * Math.PI / 2        
-            } else if ( ( this.upliftedBlock !== Direction.S ) && ( this.upliftedBlock !== Direction.E ) && ( this.upliftedBlock !== Direction.SE ) ) {
+            } else if ( ( this.dipDirection !== Direction.S ) && ( this.dipDirection !== Direction.E ) && ( this.dipDirection !== Direction.SE ) ) {
                 throw new Error(`The orientation of the uplifted block is wrong. Should be N, S, E, W, SE or NW`)
             }    
     
         } else if ( this.strike === 90 ) {
     
-            if ( this.upliftedBlock === Direction.N ) { 
+            if ( this.dipDirection === Direction.N ) { 
                 this.alphaStriaDeg = 270
                 this.alphaStria = 3 * Math.PI / 2                     
-            } else if (this.upliftedBlock !== Direction.S) {
+            } else if (this.dipDirection !== Direction.S) {
                 throw new Error(`The orientation of the uplifted block is wrong. Should be N or S`)
             }
     
         } else if ( this.strike < 180 ){
     
-            if ( ( this.upliftedBlock === Direction.N ) || ( this.upliftedBlock === Direction.E ) || ( this.upliftedBlock === Direction.NE ) ) {
+            if ( ( this.dipDirection === Direction.N ) || ( this.dipDirection === Direction.E ) || ( this.dipDirection === Direction.NE ) ) {
                 this.alphaStriaDeg = 270
                 this.alphaStria = 3 * Math.PI / 2        
-            } else if ( ( this.upliftedBlock !== Direction.S ) && ( this.upliftedBlock !== Direction.W ) && ( this.upliftedBlock !== Direction.SW ) ) {
+            } else if ( ( this.dipDirection !== Direction.S ) && ( this.dipDirection !== Direction.W ) && ( this.dipDirection !== Direction.SW ) ) {
                 throw new Error(`The orientation of the uplifted block is wrong. Should be N, S, E, W, NE or SW`)
             }     
             
         } else if ( this.strike === 180 ) {
     
-            if ( this.upliftedBlock === Direction.E ) { 
+            if ( this.dipDirection === Direction.E ) { 
                 this.alphaStriaDeg = 270
                 this.alphaStria = 3 * Math.PI / 2                     
-            } else if (this.upliftedBlock !== Direction.W) {
+            } else if (this.dipDirection !== Direction.W) {
                 throw new Error(`The orientation of the uplifted block is wrong. Should be E or W`)
             }
     
         } else if ( this.strike < 270 ){
     
-            if ( ( this.upliftedBlock === Direction.S ) || ( this.upliftedBlock === Direction.E ) || ( this.upliftedBlock === Direction.SE ) ) {
+            if ( ( this.dipDirection === Direction.S ) || ( this.dipDirection === Direction.E ) || ( this.dipDirection === Direction.SE ) ) {
                 this.alphaStriaDeg = 270
                 this.alphaStria = 3 * Math.PI / 2        
-            } else if ( ( this.upliftedBlock !== Direction.N ) && ( this.upliftedBlock !== Direction.W ) && ( this.upliftedBlock !== Direction.NW ) ) {
+            } else if ( ( this.dipDirection !== Direction.N ) && ( this.dipDirection !== Direction.W ) && ( this.dipDirection !== Direction.NW ) ) {
                 throw new Error(`The orientation of the uplifted block is wrong. Should be N, S, E, W, SE or NW`)
             }     
     
         } else if ( this.strike === 270 ) {
     
-            if ( this.upliftedBlock === Direction.S ) { 
+            if ( this.dipDirection === Direction.S ) { 
                 this.alphaStriaDeg = 270
                 this.alphaStria = 3 * Math.PI / 2                     
-            } else if (this.upliftedBlock !== Direction.N) {
+            } else if (this.dipDirection !== Direction.N) {
                 throw new Error(`The orientation of the uplifted block is wrong. Should be N or S`)
             }
          
         } else if ( this.strike < 360 ){
     
-            if ( ( this.upliftedBlock === Direction.S ) || ( this.upliftedBlock === Direction.W ) || ( this.upliftedBlock === Direction.SW ) ) {
+            if ( ( this.dipDirection === Direction.S ) || ( this.dipDirection === Direction.W ) || ( this.dipDirection === Direction.SW ) ) {
                 this.alphaStriaDeg = 270
                 this.alphaStria = 3 * Math.PI / 2        
-            } else if ( ( this.upliftedBlock !== Direction.N ) && ( this.upliftedBlock !== Direction.E ) && ( this.upliftedBlock !== Direction.NE ) ) {
+            } else if ( ( this.dipDirection !== Direction.N ) && ( this.dipDirection !== Direction.E ) && ( this.dipDirection !== Direction.NE ) ) {
                 throw new Error(`The orientation of the uplifted block is wrong. Should be N, S, E, W, NE or SW`)
             }     
                     
         } else if ( this.strike === 360 ) {
           
-            if ( this.upliftedBlock === Direction.W ) { 
+            if ( this.dipDirection === Direction.W ) { 
                 this.alphaStriaDeg = 270
                 this.alphaStria = 3 * Math.PI / 2                     
-            } else if (this.upliftedBlock !== Direction.E) {
+            } else if (this.dipDirection !== Direction.E) {
                 throw new Error(`The orientation of the uplifted block is wrong. Should be E or W`)
             }
             
@@ -954,18 +1490,18 @@ export class FaultHelper {
         }
     }
 
-    private createUpLiftedBlock() {
-        const f = new FaultHelper({strike: 0, dipDirection: Direction.E, dip: 90}) // TODO: params in ctor
-        f.setStriation({strikeDirection: Direction.N, rake: 90, typeOfMovement: TypeOfMovement.UND})
-        /**
-        * There is one particular case in which the sens of mouvement has to be defined with a different parameter:
-        * A vertical plane with rake = 90.
-        * In such situation the user must indicate for example the direction of the uplifted block:
-        *      upLiftedBlock: (N, E, S, W) or a combination of two directions (NE, SE, SW, NW).
-        */
+    // private createUpLiftedBlock() {
+    //     const f = new FaultHelper({strike: 0, dipDirection: Direction.E, dip: 90}) // TODO: params in ctor
+    //     f.setStriation({strikeDirection: Direction.N, rake: 90, typeOfMovement: TypeOfMovement.UND})
+    //     /**
+    //     * There is one particular case in which the sens of mouvement has to be defined with a different parameter:
+    //     * A vertical plane with rake = 90.
+    //     * In such situation the user must indicate for example the direction of the uplifted block:
+    //     *      upLiftedBlock: (N, E, S, W) or a combination of two directions (NE, SE, SW, NW).
+    //     */
 
-        return f
-    }
+    //     return f
+    // }
 
     private faultSphericalCoordsSP() {
         // Calculate the spherical coordinates of the unit vector normal to the plane in reference system Sr
@@ -1042,14 +1578,16 @@ export class FaultHelper {
     private rake:               number
     private strikeDirection:    Direction
     private striationTrend:     number
-    // Sense of mouvement: For verification purposes, it is recommended to indicate both the dip-slip and strike-slip compoenents, when possible. 
+    private nStriationTrend:     Vector3 = [0,0,0]
+    private nStriation:     Vector3 = [0,0,0]
+    // Type of mouvement: For verification purposes, it is recommended to indicate both the dip-slip and strike-slip compoenents, when possible. 
     //      Dip-slip component:
     //          N = Normal fault, 
     //          I = Inverse fault or thrust
     //      Strike-slip componenet:
     //          RL = Right-Lateral fault
     //          LL = Left-Lateral fault
-    // Sense of mouvement: N, I, RL, LL, N-RL, N-LL, I-RL, I-LL
+    // Type of mouvement: N, I, RL, LL, N-RL, N-LL, I-RL, I-LL
     private typeMov: TypeOfMovement
 
     // We define 2 orthonormal right-handed reference systems:
@@ -1109,6 +1647,9 @@ export class FaultHelper {
     private upliftedBlock: Direction
 
     private isUpLiftedBlock: boolean = false
+
+    private EPS: number = 1e-7;
+
 }
 
 

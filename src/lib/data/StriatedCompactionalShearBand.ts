@@ -92,15 +92,15 @@ export class StriatedCompactionalShearBand extends NeoformedStriatedPlane {
         // -----------------------------------
 
         // Check that nPlane and nStriation are unit vectors
-        const { nPlane, nStriation, nPerpStriation } = FaultHelper.create(plane, striation)
+        const f = FaultHelper.create(plane, striation)
 
-        this.nPlane = nPlane
-        this.nStriation = nStriation
-        this.nPerpStriation = nPerpStriation
+        this.nPlane = f.normal
+        this.nStriation = f.striation
+        this.nPerpStriation = f.e_perp_striation
         this.noPlane = toInt(toks[0])
 
         // Check orthogonality
-        const sp = scalarProductUnitVectors({ U: nPlane, V: nStriation })
+        const sp = scalarProductUnitVectors({ U: this.nPlane, V: this.nStriation })
         if (Math.abs(sp) > this.EPS) {
             throw new Error(`striation is not on the fault plane. Dot product with normal vector gives ${sp}`)
         }

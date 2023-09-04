@@ -1,3 +1,4 @@
+import { readNodalPlane } from "../io/DataReaderFocalMechs"
 import {
     Matrix3x3, Point3D, scalarProductUnitVectors,
     SphericalCoords, Vector3, add_Vectors,
@@ -7,8 +8,8 @@ import {
 from "../types"
 import { isNumber } from "../utils"
 import { Data } from "./Data"
-import { DataStatus } from "./DataDescription"
-import { FractureStrategy, StriatedPlaneProblemType, Tokens } from "./types"
+import { DataStatus, createDataArgument, createDataStatus } from "./DataDescription"
+import { FractureStrategy, StriatedPlaneProblemType, Tokens, createNodalPlane } from "./types"
 
 // import { Fracture, FractureParams, FractureStrategy } from "./Fracture"
 
@@ -43,19 +44,19 @@ import { FractureStrategy, StriatedPlaneProblemType, Tokens } from "./types"
     15     Weight
 
     Each nodal plane is defined by a set of 3 parameters as follows:
-        Strike: Angle of the fault-trace direction measured clockwise from the North [0, 360), defined so that the fault dips to the right side of the trace,
+        Strike: Angle of the fault-trace direction measured clockwise from the North [0, 360), defined so that the fault dips to the right side of the strike vector,
             i.e., the hanging-wall block is always to the right of the strike.
         Dip: inclination of the nodal plane relative to the horizontal [0, 90].
             The dip direction is located to the right of the strike such that the cross product of unit vectors points upward :
             normal = dip X strike
-        Rake: Angle defining the slip vector indicating the movement of the hnaging wall relative to the footwall.
+        Rake: Angle defining the slip vector indicating the movement of the hanging wall relative to the footwall.
             (i.e., the top block is located in the direction of the normal vector)
             The rake is measured in the anticlockwise direction from the strike [-180,180] 
 
     This function calculates the unit vectors perpendicular to the nodal planes in reference system:
         S = (X,Y,Z) = (E,N,Up)
     Vectors normal to nodal planes are defined in the upper hemisphere.   
-    The unit vectors indicating slip movement ar claculated from the rake angles.
+    The unit vectors indicating slip movement are calculated from the rake angles.
 
     @category Data
  */
@@ -84,6 +85,40 @@ export class FocalMechanism_Kin extends Data {
     protected problemType = StriatedPlaneProblemType.DYNAMIC
     protected strategy: FractureStrategy = FractureStrategy.ANGLE
     protected position_: Point3D = undefined
+
+    initialize(args: Tokens[]): DataStatus {
+        // Adapt read structure to focal mechanism data file **
+        const toks = args[0]
+        const result = createDataStatus()
+        const arg = createDataArgument()
+
+        // Read parameters definning the nodal plane
+        const nodalPlane1 = createNodalPlane()
+        readNodalPlane(arg, nodalPlane1, result)
+
+        // -----------------------------------
+
+        // Check that nPlane and nStriation are unit vectors
+        const { nPlane, nStriation, nPerpStriation } = FaultHelper.create(plane, striation)
+        this.nPlane = nPlane
+        this.nStriation = nStriation
+        this.nPerpStriation = nPerpStriation
+        this.noPlane = toInt(toks[0])
+
+
+        const a1 = this.nodalPlaneAngles2unitVectors({
+            strikeNodalPlane: this.nodalPlane1.strike,
+            strikeNodalPlane: this.strikeNodalPlane1,
+            dipNodalPlane: this.dipNodalPlane1,
+            rakeNodalPlane: this.rakeNodalPlane1
+        })
+        this.nNodalPlane1 = a1.nNodalPlane
+        this.SpheCoords_nNodalPlane1 = a1.SpheCoords_nNodalPlane
+        this.nRake1 = a1.nRake
+
+
+
+
 
     initialize(params: Tokens[]): DataStatus {
 

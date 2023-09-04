@@ -55,13 +55,16 @@ export function createPlane(): Plane {
 export type Striation = {
     rake: number,
     strikeDirection: Direction,
+    trendIsDefined: boolean
     trend: number,
     typeOfMovement: TypeOfMovement
 }
+
 export function createStriation(): Striation {
     return {
         rake: 0,
         strikeDirection: Direction.UND,
+        trendIsDefined: false,
         trend: 0,
         typeOfMovement: TypeOfMovement.UND
     }
@@ -91,4 +94,19 @@ export function createRuptureFrictionAngles(): RuptureFrictionAngles {
 export type Sigma1_nPlaneAngle = RuptureFrictionAngles
 export function createSigma1_nPlaneAngle() {
     return createRuptureFrictionAngles()
+}
+
+// Seismological data file
+
+export type NodalPlane = {
+    strike: number,
+    dip: number,
+    rake: number
+}
+export function createNodalPlane(): NodalPlane {
+    return {
+        strike: 0,
+        dip: 0,
+        rake: 0
+    }
 }

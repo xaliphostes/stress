@@ -3,7 +3,7 @@ import { deg2rad } from "../types"
 import { Direction, isDefined, isNumber } from "../utils"
 
 /**
- * Read from data file the parameters definning the plane orentation, the striation orientation and the type of movement.
+ * Read from data file the parameters definning the plane orientation, the striation orientation and the type of movement.
  * Special cases such as horizontal and vertical planes are considered
  */
 export function readStriatedFaultPlane(arg: DataArgument, plane: Plane, striation: Striation, result: DataStatus): void {
@@ -63,6 +63,7 @@ export function readStriatedFaultPlane(arg: DataArgument, plane: Plane, striatio
             }
         } else if (isNumber(arg.toks[7])) {
             // The striation trend is defined
+            striation.trendIsDefined = true
             striation.trend = DataDescription.getParameter(arg.setIndex(7))
 
         } else {
@@ -77,6 +78,7 @@ export function readStriatedFaultPlane(arg: DataArgument, plane: Plane, striatio
         // In this special situation the striation trend points toward the movement of the top block relative to the bottom block
 
         if (isNumber(arg.toks[7])) {
+            striation.trendIsDefined = true
             striation.trend = DataDescription.getParameter(arg.setIndex(7))
 
         } else {
@@ -205,3 +207,4 @@ export function readSigma1nPlaneInterval(arg: DataArgument, sigma1_nPlane: Sigma
         sigma1_nPlane.isDefined = true
     }
 }
+

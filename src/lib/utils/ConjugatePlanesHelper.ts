@@ -7,8 +7,20 @@ export class ConjugatePlanesHelper {
         {strike: number, dipDirection: Direction, dip: number, typeOfMovement: TypeOfMovement, rake: number, strikeDirection: Direction}):
         {nPlane: Vector3, nStriation: Vector3, nPerpStriation: Vector3, fault: FaultHelper}
     {
-        const f = new FaultHelper({strike, dipDirection, dip})
-        f.setStriation({typeOfMovement, rake, strikeDirection})
+        // const f = new FaultHelper({strike, dipDirection, dip})
+        // f.setStriation({typeOfMovement, rake, strikeDirection})
+        // return {
+        //     nPlane: f.normal,
+        //     nStriation: f.striation,
+        //     nPerpStriation: f.e_perp_striation,
+        //     fault: f
+        // }
+
+        const f = FaultHelper.create(
+            {strike, dip, dipDirection},
+            {rake, strikeDirection, typeOfMovement, trend: 0, trendIsDefined: false}
+        )
+
         return {
             nPlane: f.normal,
             nStriation: f.striation,
