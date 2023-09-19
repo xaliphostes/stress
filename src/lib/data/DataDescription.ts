@@ -96,12 +96,12 @@ export const DataDescription = {
 
         (v: string, arg: DataArgument) => myParseFloat(v, arg),
         (v: string, arg: DataArgument) => myParseFloat(v, arg),   // 3
-        (v: string, arg: DataArgument) => v,
+        (v: string, arg: DataArgument) => myParseDirection(v, arg),
 
         (v: string, arg: DataArgument) => myParseFloat(v, arg),
-        (v: string, arg: DataArgument) => v,               // 6
+        (v: string, arg: DataArgument) => myParseDirection(v, arg),               // 6
         (v: string, arg: DataArgument) => myParseFloat(v, arg),
-        (v: string, arg: DataArgument) => v,
+        (v: string, arg: DataArgument) => myParseTypeOfMovement(v, arg),
 
         (v: string, arg: DataArgument) => myParseFloat(v, arg),   // 9
         (v: string, arg: DataArgument) => myParseFloat(v, arg),
@@ -171,10 +171,10 @@ export const DataDescription = {
             return vv >= 0 && vv <= 90
         },
         // 4
-        (v: string) => directionExists(v),
+        (v: Direction) => v !== Direction.ERROR,
         // 5
         (v: string) => {
-            const vv = DataDescription.type[4](v)
+            const vv = DataDescription.type[5](v)
             return vv >= 0 && vv <= 90
         },
         // 6
@@ -185,7 +185,7 @@ export const DataDescription = {
             return vv >= 0 && vv < 360
         },
         // 8
-        (v: string) => getTypeOfMovementFromString(v),
+        (v: TypeOfMovement) => v !== TypeOfMovement.ERROR, //getTypeOfMovementFromString(v),
         // 9
         (v: string) => {
             const vv = DataDescription.type[8](v)
@@ -262,11 +262,13 @@ export const DataDescription = {
         arg.result.messages.push(`Data number ${arg.toks[0]}: mandatory parameter for data ${DataFactory.name(arg.data)}, parameter ${DataDescription.names[arg.index]} is out of range or non valid. Got ${arg.toks[arg.index]} and should be ${DataDescription.ranges[arg.index]} at index ${arg.index}`)
     },
 
-    getParameter(arg: DataArgument) {
+    getParameter(arg: DataArgument): string | number {
         const value = DataDescription.type[arg.index](arg.toks[arg.index], arg.result)
+
         if (!DataDescription.checkRanges[arg.index](value)) {
             DataDescription.putMessage(arg.toks, arg.index, arg.data, arg.result)
         }
+        return value
     }
 
 }

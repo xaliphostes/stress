@@ -28,6 +28,8 @@ export class StriatedPlaneKin extends Data {
         const toks = args[0]
         const result = createDataStatus()
         const arg = createDataArgument()
+        arg.toks = toks
+        arg.index = toInt(toks[0])
 
         // Read parameters definning plane orientation, striation orientation and type of movement
         const plane = createPlane()

@@ -3,8 +3,7 @@
 import { constant_x_Vector, crossProduct, Matrix3x3, newMatrix3x3, newVector3D, normalizedCrossProduct, Vector3 } from "../types/math"
 import { deg2rad, tensor_x_Vector, spherical2unitVectorCartesian } from "../types/math"
 import { SphericalCoords } from "../types/SphericalCoords"
-import { DataArgument, DataDescription, DataFactory, DataStatus, Plane, RuptureFrictionAngles, Sigma1_nPlaneAngle, Striation } from "../data"
-import { isDefined, isNumber } from "./numberUtils"
+import { Plane, Striation } from "../data"
 import { scalarProduct } from "../types"
 
 /**
@@ -15,7 +14,7 @@ import { scalarProduct } from "../types"
  * @category Data
  */
 export const enum TypeOfMovement {
-    N = 1,
+    N = 0,
     I,
     RL,
     LL, 
@@ -23,7 +22,8 @@ export const enum TypeOfMovement {
     N_LL, 
     I_RL, 
     I_LL,
-    UND
+    UND,
+    ERROR
 }
 
 export const mvts = ['N', 'I', 'RL', 'LL', 'N_RL', 'N_LL', 'I_RL', 'I_LL', 'UND']
@@ -127,7 +127,7 @@ export class FaultHelper {
         if ( !striation.trendIsDefined ) {
             // The striation is defined by the rake and strike direction and not by the trend
 
-            if (( f.dip !== 90 ) && ( striation.rake !== 90 )) {
+            if (( f.dip !== 90 ) || ( striation.rake !== 90 )) {
                 // General case
                 f.setStriationFromRake({
                     typeOfMovement: striation.typeOfMovement, 
@@ -1082,7 +1082,7 @@ export class FaultHelper {
                         this.alphaStriaDeg = 180 - this.rake  
                         this.alphaStria = Math.PI - deg2rad( this.rake )
                     } else {
-                        throw new Error(`Strike direction for measuring the rake is wrong. Should be N, S, E, W, NE or SW `)
+                        throw new Error(`Strike direction for measuring the rake is wrong. Should be N, S, E, W, NE or SW. Got ${this.strikeDirection}`)
                     }
                 } else if ( ( this.dipDirection === Direction.N ) || ( this.dipDirection === Direction.W ) || ( this.dipDirection === Direction.NW ) ) {
                     if ( (this.strikeDirection === Direction.N) || (this.strikeDirection === Direction.E) || (this.strikeDirection === Direction.NE) ) {
