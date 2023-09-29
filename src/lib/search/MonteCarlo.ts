@@ -51,7 +51,7 @@ export class MonteCarlo implements SearchMethod {
     }
 
     run(data: Data[], misfitCriteriaSolution: MisfitCriteriunSolution): MisfitCriteriunSolution {
-        // The optimum stress tensor is calculated by exploring the stress orientations and the stress ratio around the approximate solution S0
+        // The optimum stress tensor is calculated by exploring the stress orientations and the stress ratio around the approximate solution Sr (r = rough solution)
         // obtained by the user during the interactive analysis of flow lines on the sphere, Mohr circle diagram, and histogram of signed angular deviations.
         // More precisely, the minimization function is calculated for a set of stress tensors whose orientations are rotated around axes 
         // defined by a Montecarlo algorithm distributed "quasi-homogeneously" on the sphere surface.

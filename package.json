@@ -7,7 +7,7 @@
     "main": "dist/@alfredo-taboada/stress.js",
     "types": "src/index.ts",
     "scripts": {
-        "build": "yarn build:dev && cp ./dist/@alfredo-taboada/stress.js ../app-stress-0/libs",
+        "build": "yarn build:dev && cp ./dist/@alfredo-taboada/stress.js ../app-stress-1/libs",
         "build:dev": "webpack --mode development",
         "build:prod": "webpack --mode production",
         "test": "jest -c ./jest.config.js --rootDir .",

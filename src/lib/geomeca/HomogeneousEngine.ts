@@ -16,7 +16,7 @@ export class HomogeneousEngine implements Engine {
         this.Hrot_ = Hrot
         this.stressRatio_ = stressRatio
 
-        // The normalized eigen-vectors of the stress tensor are defined in terms of the lines of tranformation matrix Hrot from reference system S to Sh:
+        // The normalized eigen-vectors of the stress tensor are defined in terms of the lines of transformation matrix Hrot from reference system S to Sh:
         this.S1_Xh = [this.Hrot_[0][0], this.Hrot_[0][1],  this.Hrot_[0][2]] as Vector3
         this.S3_Yh = [this.Hrot_[1][0], this.Hrot_[1][1],  this.Hrot_[1][2]] as Vector3
         this.S2_Zh = [this.Hrot_[2][0], this.Hrot_[2][1],  this.Hrot_[2][2]] as Vector3

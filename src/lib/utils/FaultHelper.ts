@@ -37,15 +37,15 @@ export function sensOfMovementExists(s: string): boolean {
 
 export function getTypeOfMovementFromString(s: string): TypeOfMovement {
     switch(s) {
-        case 'N': return TypeOfMovement.N
-        case 'I': return TypeOfMovement.I
-        case 'RL': return TypeOfMovement.RL
+        case 'N': return TypeOfMovement.N // 0
+        case 'I': return TypeOfMovement.I 
+        case 'RL': return TypeOfMovement.RL // 2
         case 'LL': return TypeOfMovement.LL
-        case 'N_RL': return TypeOfMovement.N_RL
+        case 'N_RL': return TypeOfMovement.N_RL // 4
         case 'N_LL': return TypeOfMovement.N_LL
-        case 'I_RL': return TypeOfMovement.I_RL
+        case 'I_RL': return TypeOfMovement.I_RL // 6
         case 'I_LL': return TypeOfMovement.I_LL
-        case 'UND': return TypeOfMovement.UND
+        case 'UND': return TypeOfMovement.UND // 8
     }
 }
 
