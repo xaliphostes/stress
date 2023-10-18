@@ -69,7 +69,7 @@ export class HomogeneousEngine implements Engine {
 
     stress(p: Vector3): HypotheticalSolutionTensorParameters {
         return {
-            S: undefined,
+            S: this.S_,
             S1_X: this.S1_Xh, 
             S3_Y: this.S3_Yh,
             S2_Z: this.S2_Zh, 

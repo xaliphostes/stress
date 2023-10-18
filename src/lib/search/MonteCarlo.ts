@@ -30,7 +30,7 @@ export class MonteCarlo implements SearchMethod {
     private engine: Engine = new HomogeneousEngine()
 
     constructor(
-        {stressRatio=0.5, stressRatioHalfInterval=0.25, rotAngleHalfInterval=0.1, nbRandomTrials=100, Rrot=newMatrix3x3Identity()}:
+        {stressRatio=0.5, stressRatioHalfInterval=0.25, rotAngleHalfInterval=0.1, nbRandomTrials=1000, Rrot=newMatrix3x3Identity()}:
         MonteCarloParams = {})
     {
         this.rotAngleHalfInterval = rotAngleHalfInterval

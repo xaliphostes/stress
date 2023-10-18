@@ -20,6 +20,13 @@ export type Vector3 = [number, number, number]
  */
 export type Matrix3x3 = [[number, number, number], [number, number, number], [number, number, number]]
 
+
+export function displayMatrix3x3(msg: string, m: Matrix3x3) {
+    console.log(msg,":")
+    console.log(m[0][0], m[0][1], m[0][2])
+    console.log(m[1][0], m[1][1], m[1][2])
+    console.log(m[2][0], m[2][1], m[2][2])
+}
 /**
  * @category Math
  */

@@ -64,7 +64,7 @@ export function createStriation(): Striation {
     return {
         rake: 0,
         strikeDirection: Direction.UND,
-        trendIsDefined: false,
+        trendIsDefined: true,
         trend: 0,
         typeOfMovement: TypeOfMovement.UND
     }

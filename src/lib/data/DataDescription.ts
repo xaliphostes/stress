@@ -1,6 +1,8 @@
 import { Direction, TypeOfMovement, directionExists, dirs, getDirectionFromString, getTypeOfMovementFromString, mvts, sensOfMovementExists } from '../utils/FaultHelper'
 import { DataFactory } from "./Factory"
 import { Data } from "./Data"
+import { Tokens } from './types'
+import { toInt } from '../utils'
 
 export type DataStatus = {
     status: boolean,
@@ -20,14 +22,21 @@ export type DataArgument = {
     result: DataStatus,
     setIndex(i: number): DataArgument
 }
-export function createDataArgument(): DataArgument {
-    return {
+export function createDataArgument(args: Tokens = undefined): DataArgument {
+    const a = {
         toks: [],
         index: -1,
         data: undefined,
-        result: {status: true, messages: []},
-        setIndex(i: number): DataArgument {this.index = i; return this}
+        result: { status: true, messages: [] },
+        setIndex(i: number): DataArgument { this.index = i; return this }
     }
+
+    if (args !== undefined) {
+        a.toks = args
+        a.index = toInt(args[0])
+    }
+
+    return a
 }
 
 function myParseFloat(v: string, arg: DataArgument): number {
@@ -124,29 +133,29 @@ export const DataDescription = {
         (v: string, arg: DataArgument) => myParseFloat(v, arg)
     ],
     ranges: [
-        '∈ N*',
+        '∈ N*',                                 // 0
         '',
-        '[0, 360[',
+        '[0, 360[',                             // 2
         '[0, 90]',
-        '[N, S, E, W, NE, SE, SW, NW, UND]',
+        '[N, S, E, W, NE, SE, SW, NW, UND]',    // 4
         '[0, 90]',
-        '[N, S, E, W, NE, SE, SW, NW, UND]',
+        '[N, S, E, W, NE, SE, SW, NW, UND]',    // 6
         '[0, 360[',
-        '[N, I, RL, LL, N_RL, N_LL, I_RL, I_LL, UND]',
+        '[N, I, RL, LL, N_RL, N_LL, I_RL, I_LL, UND]',  // 8
         '[0, 360[',
-        '[0, 90]',
+        '[0, 90]',                              // 10
         '∈ N*',
-        '∈ R*',
-        '∈ R',
-        '∈ R',
-        '∈ R',
+        '∈ R*',                                 // 12
+        '[0, 90[',
+        '[0, 90[',                            // 14
+        ']0, 90[',
+        ']0, 90[',                              // 16
         '[0, 90]',
+        '[0, 360[',                             // 18
         '[0, 90]',
-        '[0, 360[',
-        '[0, 90]',
-        '[N, S, E, W, NE, SE, SW, NW, UND]',
+        '[N, S, E, W, NE, SE, SW, NW, UND]',    // 20
         '∈ R',
-        '∈ R',
+        '∈ R',                                  // 22
         '∈ R'
     ],
     checkRanges: [
@@ -161,13 +170,13 @@ export const DataDescription = {
         // 2
         (v: string) => {
             // Strike
-            const vv = DataDescription.type[1](v)
+            const vv = DataDescription.type[2](v)
             return vv >= 0 && vv < 360
         },
         // 3
         (v: string) => {
             // Dip
-            const vv = DataDescription.type[2](v)
+            const vv = DataDescription.type[3](v)
             return vv >= 0 && vv <= 90
         },
         // 4
@@ -181,50 +190,50 @@ export const DataDescription = {
         (v: string) => getDirectionFromString(v),
         // 7
         (v: string) => {
-            const vv = DataDescription.type[6](v)
+            const vv = DataDescription.type[7](v)
             return vv >= 0 && vv < 360
         },
         // 8
         (v: TypeOfMovement) => v !== TypeOfMovement.ERROR, //getTypeOfMovementFromString(v),
         // 9
         (v: string) => {
-            const vv = DataDescription.type[8](v)
+            const vv = DataDescription.type[9](v)
             return vv >= 0 && vv < 360
         },
         // 10
         (v: string) => {
-            const vv = DataDescription.type[9](v)
+            const vv = DataDescription.type[10](v)
             return vv >= 0 && vv <= 90
         },
         // 11
         (v: string) => {
-            const vv = DataDescription.type[10](v)
+            const vv = DataDescription.type[11](v)
             return vv > 0
         },
         // 12
         (v: string) => {
-            const vv = DataDescription.type[11](v)
+            const vv = DataDescription.type[12](v)
             return vv >= 0
         },
         // 13
         (v: string) => {
-            const vv = DataDescription.type[12](v)
+            const vv = DataDescription.type[13](v)
             return vv >= 0 && vv < 90
         },
         // 14
         (v: string) => {
-            const vv = DataDescription.type[13](v)
-            return vv >= DataDescription.ranges[12] && vv < 90
+            const vv = DataDescription.type[14](v)
+            return vv >= 0 && vv < 90
         },
         // 15
         (v: string) => {
-            const vv = DataDescription.type[14](v)
+            const vv = DataDescription.type[15](v)
             return vv > 0 && vv < 90
         },
         // 16
         (v: string) => {
-            const vv = DataDescription.type[15](v)
-            return vv >= DataDescription.ranges[14] && vv < 90
+            const vv = DataDescription.type[16](v)
+            return vv > 0 && vv < 90
         },
         // 17
         (v: string) => {
