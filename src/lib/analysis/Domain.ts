@@ -1,25 +1,24 @@
 /**
  * @category Domain
  */
-export type Bounds = {
-    min: number,
-    max: number
-}
+export type Bounds = [number, number]
 
 /**
  * @category Domain
  */
 export type Axis = {
     bounds: Bounds,
-    name: string,
-    n: number
+    name: string
 }
 
 /**
  * @category Domain
  */
 export interface Domain {
-    run(): Array<number>
+    run(): number[]
+    x(): number[]
+    y(): number[] | undefined
+    z(): number[] | undefined
 }
 
 /**

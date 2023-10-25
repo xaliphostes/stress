@@ -13,12 +13,22 @@ export const isNumber = (a: any): boolean => {
 }
 
 export const isDefined = (a: string | number): boolean => {
-    if (typeof a === 'string' && a.length !==0) {
+    if (typeof a === 'string' && a.length !== 0) {
         return true
     }
     return isNumber(a)
-} 
+}
 
 export const toInt = (a: any): number => Number.parseInt(a)
 
 export const toFloat = (a: any): number => Number.parseFloat(a)
+
+/**
+ * Generate a random number between min and max
+ * @param min 
+ * @param max 
+ * @returns 
+ */
+export const random = (min: number = 0, max: number = 1): number => {
+    return min + (max - min) * Math.random()
+}
