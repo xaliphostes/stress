@@ -7,7 +7,7 @@ import {
     spherical2unitVectorCartesian, SphericalCoords, transposeTensor
 } from "../types"
 import { SearchMethod } from "./SearchMethod"
-import { stressTensorDelta } from "./utils"
+// import { stressTensorDelta } from "./utils"
 
 export type MonteCarloParams = {
     rotAngleHalfInterval?: number,
@@ -39,6 +39,10 @@ export class MonteCarlo implements SearchMethod {
         this.stressRatioHalfInterval = stressRatioHalfInterval
         this.Rrot = Rrot
         this.RTrot = transposeTensor(this.Rrot)
+    }
+
+    getEngine(): Engine {
+        return this.engine
     }
 
     setEngine(engine: Engine): void {

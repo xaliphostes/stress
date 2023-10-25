@@ -54,15 +54,27 @@ export class InverseMethod {
         stressRatio: 0,
         stressTensorSolution: newMatrix3x3Identity()
     }
-    private searchMethod: SearchMethod = new MonteCarlo()
+    private searchMethod_: SearchMethod = new MonteCarlo()
     private data_:  Data[] = []
 
     get data() {
         return this.data_
     }
 
+    get searchMethod() {
+        return this.searchMethod_
+    }
+
+    get engine() {
+        return this.searchMethod_.getEngine()
+    }
+
+    clearData() {
+        this.data_ = []
+    }
+
     setSearchMethod(search: SearchMethod) {
-        this.searchMethod = search
+        this.searchMethod_ = search
     }
 
     addData(data: Data | Data[]) {
@@ -82,7 +94,7 @@ export class InverseMethod {
             this.misfitCriteriunSolution.misfit  = Number.POSITIVE_INFINITY
         }
 
-        return this.searchMethod.run(this.data_, this.misfitCriteriunSolution)
+        return this.searchMethod_.run(this.data_, this.misfitCriteriunSolution)
     }
 
     cost({displ, strain, stress}:{displ?: Vector3, strain?: HypotheticalSolutionTensorParameters, stress?: HypotheticalSolutionTensorParameters}): number {

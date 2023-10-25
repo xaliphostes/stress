@@ -1,48 +1,42 @@
-import { Axis, Domain, hasOwn } from "./Domain"
+import { Axis, hasOwn } from "./Domain"
+import { Domain2D } from "./Domain2D"
 import { ParameterSpace } from "./ParameterSpace"
 
 /**
  * @category Domain
  */
-export class Domain3D implements Domain {
-    private x: Axis = undefined
-    private y: Axis = undefined
-    private z: Axis = undefined
-    private space: any = undefined
-    
-    constructor(space: ParameterSpace, x: Axis, y: Axis, z: Axis) {
-        if (hasOwn(space, x.name) === false) {
-            throw new Error(`Variable x ${x.name} is not part of object ${space}`)
-        }
+export class Domain3D extends Domain2D {
+    private z_: Axis = undefined
+    private nz = 0
 
-        if (hasOwn(space, y.name) === false) {
-            throw new Error(`Variable y ${y.name} is not part of object ${space}`)
-        }
+    constructor({ space, xAxis, nx, yAxis, ny, zAxis, nz }: { space: ParameterSpace, xAxis: Axis, nx: number, yAxis: Axis, ny: number, zAxis: Axis, nz: number }) {
+        super({ space, xAxis, yAxis, nx, ny })
 
-        if (hasOwn(space, z.name) === false) {
-            throw new Error(`Variable z ${z.name} is not part of object ${space}`)
+        if (hasOwn(space, zAxis.name) === false) {
+            throw new Error(`Variable z ${zAxis.name} is not part of object ${space}`)
         }
+        this.z_ = zAxis
+        this.nz = nz
+    }
 
-        this.space = space
-        this.x = x
-        this.y = y
-        this.z = z
+    z(): number[] | undefined {
+        return new Array(this.nz).fill(0).map((_,i) => this.z_.bounds[0] + (this.z_.bounds[1] - this.z_.bounds[0]) / (this.nz - 1) )
     }
 
     run(): Array<number> {
-        const nx = this.x.n
-        const ny = this.y.n
-        const nz = this.z.n
+        const nx = this.nx
+        const ny = this.ny
+        const nz = this.nz
 
-        const data = new Array(nx*ny*nz).fill(0)
+        const data = new Array(nx * ny * nz).fill(0)
         let index = 0
 
-        for (let i=0; i<nx; ++i) {
-            this.space[this.x.name] = this.x.bounds.min + (this.x.bounds.max - this.x.bounds.min)/(nx-1) // setter
-            for (let j=0; j<ny; ++j) {
-                this.space[this.y.name] = this.y.bounds.min + (this.y.bounds.max - this.y.bounds.min)/(ny-1) // setter
-                for (let k=0; k<nz; ++k) {
-                    this.space[this.z.name] = this.z.bounds.min + (this.z.bounds.max - this.z.bounds.min)/(nz-1) // setter
+        for (let i = 0; i < nx; ++i) {
+            this.space[this.x.name] = this.x_.bounds[0] + (this.x_.bounds[1] - this.x_.bounds[0]) / (nx - 1) // setter
+            for (let j = 0; j < ny; ++j) {
+                this.space[this.y.name] = this.y_.bounds[0] + (this.y_.bounds[1] - this.y_.bounds[0]) / (ny - 1) // setter
+                for (let k = 0; k < nz; ++k) {
+                    this.space[this.z.name] = this.z_.bounds[0] + (this.z_.bounds[1] - this.z_.bounds[0]) / (nz - 1) // setter
                     data[index++] = this.space.cost()
                 }
             }
@@ -55,7 +49,7 @@ export class Domain3D implements Domain {
 /**
  * @category Domain
  */
-export function getDomain3D(space: ParameterSpace, x: Axis, y: Axis, z: Axis) {
-    const d = new Domain3D(space, x, y,z)
+export function getDomain3D({ space, xAxis, nx, yAxis, ny, zAxis, nz }: { space: ParameterSpace, xAxis: Axis, nx: number, yAxis: Axis, ny: number, zAxis: Axis, nz: number }) {
+    const d = new Domain3D({ space, xAxis, yAxis, zAxis, nx, ny, nz })
     return d.run()
 }

@@ -8,13 +8,17 @@ import { SearchMethod } from "./SearchMethod";
  * @category Search-Method
  */
 export class DebugSearch implements SearchMethod {
-    private engine: Engine = new HomogeneousEngine()
+    private engine_: Engine = new HomogeneousEngine()
+
+    getEngine() {
+        return this.engine_
+    }
 
     setInteractiveSolution({rot, stressRatio}:{rot: Matrix3x3, stressRatio: number}): void {
     }
 
     setEngine(engine: Engine): void {
-        this.engine = engine
+        this.engine_ = engine
     }
 
     run(data: Data[], misfitCriteriaSolution: MisfitCriteriunSolution): MisfitCriteriunSolution {
@@ -27,8 +31,8 @@ export class DebugSearch implements SearchMethod {
                 const hRot = newMatrix3x3()
                 const stressRatio = 0.5
                 
-                this.engine.setHypotheticalStress(hRot, stressRatio)
-                const misfit = data.reduce( (previous, current) => previous + current.cost({stress: this.engine.stress(current.position)}) , 0) / data.length
+                this.engine_.setHypotheticalStress(hRot, stressRatio)
+                const misfit = data.reduce( (previous, current) => previous + current.cost({stress: this.engine_.stress(current.position)}) , 0) / data.length
                 if (misfit < newSolution.misfit) {
                     newSolution.misfit = misfit
                     newSolution.rotationMatrixD = hRot

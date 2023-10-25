@@ -1,6 +1,6 @@
 import { Axis, Domain, hasOwn } from "./Domain"
 import { ParameterSpace } from "./ParameterSpace"
- 
+
 /**
  * @example
  * ```ts
@@ -8,50 +8,64 @@ import { ParameterSpace } from "./ParameterSpace"
  * 
  * const x = {
  *      bounds: [0, 0.5],
- *      name: 'R',
- *      n: 50
+ *      name: 'R'
  * }
  * 
  * const y = {
  *      bounds: [0, 180],
- *      name: 'theta',
- *      n: 50
+ *      name: 'theta'
  * }
- * const d = new Domain2D(ps, x, y)
+ * const d = new Domain2D({space: ps, xAxis: x, yAxis: y, nx: 50, ny: 50})
  * const data = d.run()
  * ```
  * @category Domain
  */
 export class Domain2D implements Domain {
-    private x: Axis = undefined
-    private y: Axis = undefined
-    private space: any = undefined
-    
-    constructor(space: ParameterSpace, x: Axis, y: Axis) {
-        if (hasOwn(space, x.name) === false) {
-            throw new Error(`Variable x ${x.name} is not part of object ${space}`)
+    protected x_: Axis = undefined
+    protected y_: Axis = undefined
+    protected nx = 0
+    protected ny = 0
+    protected space: any = undefined
+
+    constructor({ space, xAxis, nx, yAxis, ny }: { space: ParameterSpace, xAxis: Axis, nx: number, yAxis: Axis, ny: number }) {
+        if (hasOwn(space, xAxis.name) === false) {
+            throw new Error(`Variable x ${xAxis.name} is not part of object ${space}`)
         }
 
-        if (hasOwn(space, y.name) === false) {
-            throw new Error(`Variable y ${y.name} is not part of object ${space}`)
+        if (hasOwn(space, yAxis.name) === false) {
+            throw new Error(`Variable y ${yAxis.name} is not part of object ${space}`)
         }
 
         this.space = space
-        this.x = x
-        this.y = y
+        this.x_ = xAxis
+        this.y_ = yAxis
+        this.nx = nx
+        this.ny = ny
+    }
+
+    x(): number[] {
+        return new Array(this.nx).fill(0).map((_,i) => this.x_.bounds[0] + (this.x_.bounds[1] - this.x_.bounds[0]) / (this.nx - 1) )
+    }
+
+    y(): number[] | undefined {
+        return new Array(this.ny).fill(0).map((_,i) => this.y_.bounds[0] + (this.y_.bounds[1] - this.y_.bounds[0]) / (this.ny - 1) )
+    }
+
+    z(): number[] | undefined {
+        return undefined
     }
 
     run(): Array<number> {
-        const nx = this.x.n
-        const ny = this.y.n
+        const nx = this.nx
+        const ny = this.ny
 
-        const data = new Array(nx*ny).fill(0)
+        const data = new Array(nx * ny).fill(0)
         let index = 0
 
-        for (let i=0; i<nx; ++i) {
-            this.space[this.x.name] = this.x.bounds.min + (this.x.bounds.max - this.x.bounds.min)/(nx-1) // setter
-            for (let j=0; j<ny; ++j) {
-                this.space[this.y.name] = this.y.bounds.min + (this.y.bounds.max - this.y.bounds.min)/(ny-1) // setter
+        for (let i = 0; i < nx; ++i) {
+            this.space[this.x_.name] = this.x_.bounds[0] + (this.x_.bounds[1] - this.x_.bounds[0]) / (nx - 1) // setter
+            for (let j = 0; j < ny; ++j) {
+                this.space[this.y_.name] = this.y_.bounds[0] + (this.y_.bounds[1] - this.y_.bounds[0]) / (ny - 1) // setter
                 data[index++] = this.space.cost()
             }
         }
@@ -67,21 +81,18 @@ export class Domain2D implements Domain {
  * 
  * const x = {
  *      bounds: [0, 0.5],
- *      name: 'R',
- *      n: 50
+ *      name: 'R'
  * }
  * 
  * const y = {
  *      bounds: [0, 180],
- *      name: 'theta',
- *      n: 50
+ *      name: 'theta'
  * }
  * 
- * const data = getDomain(ps, x, y)
+ * const data = getDomain2D({space: ps, xAxis: x, yAxis: y, nx: 50, ny: 50})
  * ```
  * @category Domain
  */
-export function getDomain2D(space: ParameterSpace, x: Axis, y: Axis) {
-    const d = new Domain2D(space, x, y)
-    return d.run()
+export function getDomain2D({ space, xAxis, nx, yAxis, ny }: { space: ParameterSpace, xAxis: Axis, nx: number, yAxis: Axis, ny: number }) {
+    return new Domain2D({ space, xAxis, yAxis, nx, ny }).run()
 }

@@ -12,6 +12,8 @@ export interface SearchMethod {
 
     setEngine(engine: Engine): void
 
+    getEngine(): Engine
+
     /**
      * 
      * @note We change the misfitCriteriaSolution variable and this is not the best solution
