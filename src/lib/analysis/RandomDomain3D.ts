@@ -20,6 +20,16 @@ export class RandomDomain3D extends RandomDomain2D {
         this.z_ = zAxis
     }
 
+    xAxis(): Axis {
+        return this.x_
+    }
+    yAxis(): Axis {
+        return this.y_
+    }
+    zAxis(): Axis {
+        return this.z_
+    }
+
     z(): number[] | undefined {
         return this.zs_
     }

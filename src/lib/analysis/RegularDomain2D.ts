@@ -20,14 +20,14 @@ import { ParameterSpace } from "./ParameterSpace"
  * ```
  * @category Domain
  */
-export class Domain2D implements Domain {
+export class RegularDomain2D implements Domain {
     protected x_: Axis = undefined
     protected y_: Axis = undefined
-    protected nx = 0
-    protected ny = 0
+    protected nx_ = 0
+    protected ny_ = 0
     protected space: any = undefined
 
-    constructor({ space, xAxis, nx, yAxis, ny }: { space: ParameterSpace, xAxis: Axis, nx: number, yAxis: Axis, ny: number }) {
+    constructor({ space, xAxis, n, yAxis }: { space: ParameterSpace, xAxis: Axis, yAxis: Axis, n: number }) {
         if (hasOwn(space, xAxis.name) === false) {
             throw new Error(`Variable x ${xAxis.name} is not part of object ${space}`)
         }
@@ -39,33 +39,58 @@ export class Domain2D implements Domain {
         this.space = space
         this.x_ = xAxis
         this.y_ = yAxis
-        this.nx = nx
-        this.ny = ny
+        this.nx_ = n
+        this.ny_ = n
+    }
+
+    xAxis(): Axis {
+        return this.x_
+    }
+    yAxis(): Axis {
+        return this.y_
+    }
+    zAxis(): Axis {
+        return undefined
+    }
+
+    get nx() {
+        return this.nx_
+    }
+    get ny() {
+        return this.ny_
     }
 
     x(): number[] {
-        return new Array(this.nx).fill(0).map((_,i) => this.x_.bounds[0] + (this.x_.bounds[1] - this.x_.bounds[0]) / (this.nx - 1) )
+        // return new Array(this.nx).fill(0).map((_, i) => this.x_.bounds[0] + i * (this.x_.bounds[1] - this.x_.bounds[0]) / (this.nx - 1))
+        return new Array(this.nx_).fill(0).map((_, i) => i / (this.nx_ - 1))
+
     }
 
     y(): number[] | undefined {
-        return new Array(this.ny).fill(0).map((_,i) => this.y_.bounds[0] + (this.y_.bounds[1] - this.y_.bounds[0]) / (this.ny - 1) )
+        // return new Array(this.ny_).fill(0).map((_, i) => this.y_.bounds[0] + i * (this.y_.bounds[1] - this.y_.bounds[0]) / (this.ny_ - 1))
+        return new Array(this.nx_).fill(0).map((_, i) => i / (this.nx_ - 1))
     }
 
     z(): number[] | undefined {
         return undefined
     }
 
+    setSampling(n: number) {
+        this.nx_ = n
+        this.ny_ = n
+    }
+
     run(): Array<number> {
-        const nx = this.nx
-        const ny = this.ny
+        const nx = this.nx_
+        const ny = this.ny_
 
         const data = new Array(nx * ny).fill(0)
         let index = 0
 
         for (let i = 0; i < nx; ++i) {
-            this.space[this.x_.name] = this.x_.bounds[0] + (this.x_.bounds[1] - this.x_.bounds[0]) / (nx - 1) // setter
+            this.space[this.x_.name] = this.x_.bounds[0] + i * (this.x_.bounds[1] - this.x_.bounds[0]) / (nx - 1) // setter
             for (let j = 0; j < ny; ++j) {
-                this.space[this.y_.name] = this.y_.bounds[0] + (this.y_.bounds[1] - this.y_.bounds[0]) / (ny - 1) // setter
+                this.space[this.y_.name] = this.y_.bounds[0] + j * (this.y_.bounds[1] - this.y_.bounds[0]) / (ny - 1) // setter
                 data[index++] = this.space.cost()
             }
         }
@@ -93,6 +118,6 @@ export class Domain2D implements Domain {
  * ```
  * @category Domain
  */
-export function getDomain2D({ space, xAxis, nx, yAxis, ny }: { space: ParameterSpace, xAxis: Axis, nx: number, yAxis: Axis, ny: number }) {
-    return new Domain2D({ space, xAxis, yAxis, nx, ny }).run()
+export function getDomain2D({ space, xAxis, yAxis, n }: { space: ParameterSpace, xAxis: Axis, yAxis: Axis, n: number }) {
+    return new RegularDomain2D({ space, xAxis, yAxis, n }).run()
 }
