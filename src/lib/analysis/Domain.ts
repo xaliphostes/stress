@@ -16,10 +16,16 @@ export type Axis = {
  */
 export interface Domain {
     run(): number[]
+    setSampling(n: number): void
     x(): number[]
     y(): number[] | undefined
     z(): number[] | undefined
+    xAxis(): Axis
+    yAxis(): Axis
+    zAxis(): Axis
 }
+
+
 
 /**
  * @category Utils

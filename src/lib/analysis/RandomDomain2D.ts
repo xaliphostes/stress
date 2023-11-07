@@ -65,6 +65,16 @@ export class RandomDomain2D implements Domain {
         return undefined
     }
 
+    xAxis(): Axis {
+        return this.x_
+    }
+    yAxis(): Axis {
+        return this.y_
+    }
+    zAxis(): Axis {
+        return undefined
+    }
+
     run(): Array<number> {
         const n = this.n
 
