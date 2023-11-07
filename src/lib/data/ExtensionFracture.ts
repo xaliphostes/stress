@@ -66,4 +66,9 @@ export class ExtensionFracture extends Data {
             default: return Math.acos(Math.abs(dot)) / Math.PI
         }
     }
+
+    predict({ displ, strain, stress }: { displ?: Vector3; strain?: HypotheticalSolutionTensorParameters; stress?: HypotheticalSolutionTensorParameters }): number {
+        const dot = scalarProductUnitVectors({ U: stress.S3_Y, V: this.nPlane })
+        return Math.acos(Math.abs(dot))
+    }
 }

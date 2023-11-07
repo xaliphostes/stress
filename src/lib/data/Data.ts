@@ -73,9 +73,9 @@ export abstract class Data  {
         { displ?: Vector3, strain?: HypotheticalSolutionTensorParameters, stress?: HypotheticalSolutionTensorParameters }): number
 
     /**
-     * After stress inersion, get the inered data orientation/magnitude/etc for this specific Data
+     * After stress inversion, get the infered data orientation/magnitude/etc for this specific Data
      */
-    predict({ displ, strain, stress }: { displ?: Vector3, strain?: Matrix3x3, stress?: Matrix3x3 }): any {
+    predict({ displ, strain, stress }: { displ?: Vector3, strain?: HypotheticalSolutionTensorParameters, stress?: HypotheticalSolutionTensorParameters }): any {
         return undefined
     }
 }

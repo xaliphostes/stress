@@ -10,7 +10,7 @@ export function decodePlane(args: Tokens) {
 
     let strike = DataDescription.getParameter(arg.setIndex(2))
     let dip = DataDescription.getParameter(arg.setIndex(3))
-    let dipDirection = undefined
+    let dipDirection = Direction.ERROR
 
     // Check consistency of the dip direction
 
@@ -25,7 +25,7 @@ export function decodePlane(args: Tokens) {
 
     if (isDefined(arg.toks[4])) {
         // The dip direction is defined 
-        let dipDirection = DataDescription.getParameter(arg.setIndex(4))
+        dipDirection = DataDescription.getParameter(arg.setIndex(4))
 
         if (isGeographicDirection(dipDirection)) {
             // The dip direction is a valid geographic direction: 'E', 'W', 'N', 'S', 'NE', 'SE', 'SW', 'NW'

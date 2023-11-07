@@ -1,8 +1,9 @@
 import { Matrix3x3, normalizeVector, scalarProductUnitVectors, Vector3 } from "../types"
 import { Data } from "./Data"
 import { faultStressComponents } from "../types/mechanics"
-import { FaultHelper, Direction, TypeOfMovement, getDirectionFromString, 
-        directionExists, getTypeOfMovementFromString, sensOfMovementExists
+import {
+    FaultHelper, Direction, TypeOfMovement, getDirectionFromString,
+    directionExists, getTypeOfMovementFromString, sensOfMovementExists
 } from "../utils/FaultHelper"
 import { Tokens, FractureStrategy, StriatedPlaneProblemType, createPlane, createStriation } from "./types"
 import { HypotheticalSolutionTensorParameters } from "../geomeca"
@@ -35,7 +36,7 @@ export class StriatedPlaneKin extends Data {
         const plane = createPlane()
         const striation = createStriation()
         readStriatedFaultPlane(arg, plane, striation, result)
-        
+
         // -----------------------------------
 
         // If the striation trend is defined (and not the strike direction and rake), then calculate th
@@ -48,22 +49,22 @@ export class StriatedPlaneKin extends Data {
         this.noPlane = toInt(toks[0])
 
         // Check orthogonality
-        const sp = scalarProductUnitVectors({U: this.nPlane, V: this.nStriation})
-        if (Math.abs(sp) >this.EPS) {
+        const sp = scalarProductUnitVectors({ U: this.nPlane, V: this.nStriation })
+        if (Math.abs(sp) > this.EPS) {
             throw new Error(`striation is not on the fault plane. Dot product gives ${sp}`)
         }
 
         return result
-    } 
+    }
 
-    check({displ, strain, stress}:{displ: Vector3, strain: Matrix3x3, stress: Matrix3x3}): boolean {
+    check({ displ, strain, stress }: { displ: Vector3, strain: Matrix3x3, stress: Matrix3x3 }): boolean {
         if (this.problemType === StriatedPlaneProblemType.DYNAMIC) {
             return stress !== undefined
         }
         return displ !== undefined
     }
 
-    cost({displ, strain, stress}:{displ: Vector3, strain: HypotheticalSolutionTensorParameters, stress: HypotheticalSolutionTensorParameters}): number {
+    cost({ displ, strain, stress }: { displ: Vector3, strain: HypotheticalSolutionTensorParameters, stress: HypotheticalSolutionTensorParameters }): number {
         if (this.problemType === StriatedPlaneProblemType.DYNAMIC) {
             // For the first implementation, use the W&B hyp.
             // let d = tensor_x_Vector({T: stress, V: this.nPlane}) // Cauchy
@@ -73,16 +74,16 @@ export class StriatedPlaneKin extends Data {
 
             // In principle, principal stresses are negative: (sigma 1, sigma 2, sigma 3) = (-1, -R, 0) 
             // Calculate the magnitude of the shear stress vector in reference system S
-            const {shearStress, normalStress, shearStressMag} = faultStressComponents({stressTensor: stress.S, normal: this.nPlane})
+            const { shearStress, normalStress, shearStressMag } = faultStressComponents({ stressTensor: stress.S, normal: this.nPlane })
             let cosAngularDifStriae = 0
 
-            if ( shearStressMag > 0 ) { // shearStressMag > Epsilon would be more realistic ***
+            if (shearStressMag > 0) { // shearStressMag > Epsilon would be more realistic ***
                 // nShearStress = unit vector parallel to the shear stress (i.e. representing the calculated striation)
                 let nShearStress = normalizeVector(shearStress, shearStressMag)
                 // The angular difference is calculated using the scalar product: 
                 // nShearStress . nStriation = |nShearStress| |nStriation| cos(angularDifStriae) = 1 . 1 . cos(angularDifStriae)
                 // cosAngularDifStriae = cos(angular difference between calculated and measured striae)
-                cosAngularDifStriae = scalarProductUnitVectors({U: nShearStress, V: this.nStriation})
+                cosAngularDifStriae = scalarProductUnitVectors({ U: nShearStress, V: this.nStriation })
 
             } else {
                 // The calculated shear stress is zero (i.e., the fault plane is parallel to a principal stress)
@@ -115,13 +116,46 @@ export class StriatedPlaneKin extends Data {
         throw new Error('Kinematic not yet available')
     }
 
+    predict({ displ, strain, stress }: { displ?: Vector3; strain?: HypotheticalSolutionTensorParameters; stress?: HypotheticalSolutionTensorParameters }): number {
+        const { shearStress, normalStress, shearStressMag } = faultStressComponents({ stressTensor: stress.S, normal: this.nPlane })
+        let cosAngularDifStriae = 0
+
+        if (shearStressMag > 0) { // shearStressMag > Epsilon would be more realistic ***
+            // nShearStress = unit vector parallel to the shear stress (i.e. representing the calculated striation)
+            let nShearStress = normalizeVector(shearStress, shearStressMag)
+            // The angular difference is calculated using the scalar product: 
+            // nShearStress . nStriation = |nShearStress| |nStriation| cos(angularDifStriae) = 1 . 1 . cos(angularDifStriae)
+            // cosAngularDifStriae = cos(angular difference between calculated and measured striae)
+            cosAngularDifStriae = scalarProductUnitVectors({ U: nShearStress, V: this.nStriation })
+
+        } else {
+            // The calculated shear stress is zero (i.e., the fault plane is parallel to a principal stress)
+            // In such situation we may consider that the calculated striation can have any direction.
+            // Nevertheless, the plane should not display striations as the shear stress is zero.
+            // Thus, in principle the plane is not compatible with the stress tensor, and it should be eliminated from the analysis
+            // In suchh case, the angular difference is taken as PI
+            cosAngularDifStriae = -1
+        }
+
+
+        // The misfit is defined by the angular difference (in radians) between measured and calculated striae
+        if (this.oriented) {
+            // The sense of the striation is known
+            return Math.acos(cosAngularDifStriae)
+        } else {
+            // The sense of the striation is not known. Thus, we choose the sens that minimizes the angular difference 
+            // and is more compatible with the observed striation.
+            return Math.acos(Math.abs(cosAngularDifStriae))
+        }
+    }
+
     protected getMapDirection(s: string): Direction {
         if (!directionExists(s)) {
             throw new Error(`Direction ${s} is not defined (or incorrectly defined)`)
         }
         return getDirectionFromString(s)
     }
-    
+
     protected getTypeOfMovement(s: string): TypeOfMovement {
         if (!sensOfMovementExists(s)) {
             throw new Error(`Type of movement ${s} is not defined (or incorrectly defined)`)
