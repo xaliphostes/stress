@@ -132,7 +132,7 @@ export class FaultHelper {
             dip: plane.dip
         })
 
-        if (!striation.trendIsDefined) { // i.e. tha plane is not horizontal
+        if (!striation.trendIsDefined) { // i.e. the plane is not horizontal
             // The striation is defined by the rake and strike direction and not by the trend
 
             if (f.dip !== 90 || striation.rake !== 90) {

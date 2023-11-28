@@ -1,5 +1,6 @@
 import { constant_x_Vector, newVector3D, normalizedCrossProduct, scalarProductUnitVectors, SphericalCoords, Vector3 } from "../types"
 import { Direction, FaultHelper, TypeOfMovement } from "./FaultHelper"
+import { decodePlane } from "./PlaneHelper"
 
 export class ConjugatePlanesHelper {
     static create(

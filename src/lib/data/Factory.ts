@@ -9,6 +9,9 @@ import { ConjugateDilatantShearBands } from './ConjugateDilatantShearBands'
 import { StriatedDilatantShearBand } from './StriatedDilatantShearBand'
 import { NeoformedStriatedPlane } from './NeoformedStriatedPlane'
 import { StriatedCompactionalShearBand } from './StriatedCompactionalShearBand'
+import { DilationBand } from './DilationBand'
+import { CompactionBand } from './CompactionBand'
+import { StyloliteInterface } from './StyloliteInterface'
 
 /* eslint @typescript-eslint/no-explicit-any: off -- need to have any here for the factory */
 export namespace DataFactory {
@@ -41,17 +44,31 @@ export namespace DataFactory {
 
 }
 
-DataFactory.bind(ExtensionFracture, 'Extension Fracture')
-DataFactory.bind(NeoformedStriatedPlane, 'Neoformed Striated Plane')
-DataFactory.bind(StriatedCompactionalShearBand, 'Striated Compactional Shear Band')
-DataFactory.bind(StriatedDilatantShearBand, 'Striated Dilatant Shear Band')
+// Fault planes
 DataFactory.bind(StriatedPlaneKin, 'Striated Plane')
+DataFactory.bind(NeoformedStriatedPlane, 'Neoformed Striated Plane')
 // DataFactory.bind(StriatedPlaneFriction1, 'Striated Plane Friction1')
 // DataFactory.bind(StriatedPlaneFriction2, 'Striated Plane Friction2')
+
+// Striated shear bands
+DataFactory.bind(StriatedDilatantShearBand, 'Striated Dilatant Shear Band')
+DataFactory.bind(StriatedCompactionalShearBand, 'Striated Compactional Shear Band')
+
+// Conjugate fault planes and deformation bands
+DataFactory.bind(ConjugateFaults, 'Conjugate Faults 1')
+DataFactory.bind(ConjugateFaults, 'Conjugate Faults 2')
 DataFactory.bind(ConjugateCompactionalShearBands, 'Conjugate Compactional Shear Bands 1')
 DataFactory.bind(ConjugateCompactionalShearBands, 'Conjugate Compactional Shear Bands 2')
 DataFactory.bind(ConjugateDilatantShearBands, 'Conjugate Dilatant Shear Bands 1')
 DataFactory.bind(ConjugateDilatantShearBands, 'Conjugate Dilatant Shear Bands 2')
-DataFactory.bind(ConjugateFaults, 'Conjugate Faults 1')
-DataFactory.bind(ConjugateFaults, 'Conjugate Faults 2')
-DataFactory.bind(StriatedDilatantShearBand, 'Striated Dilatant Shear Band')
+
+// Extensional fractures and dilation bands
+DataFactory.bind(DilationBand, 'Dilation Band')
+DataFactory.bind(ExtensionFracture, 'Extension Fracture')
+
+// Compresional interfaces and compaction bands
+DataFactory.bind(CompactionBand, 'Compaction Band')
+DataFactory.bind(StyloliteInterface, 'Stylolite Interface')
+
+
+

@@ -47,6 +47,11 @@ export class ExtensionFracture extends Data {
             dipDirection: plane.dipDirection
         })
 
+        // Read position if any
+        if (toks[19].length !== 0) this.pos[0] = parseFloat(toks[19])
+        if (toks[20].length !== 0) this.pos[1] = parseFloat(toks[20])
+        if (toks[21].length !== 0) this.pos[2] = parseFloat(toks[21])
+
         return plane.result
     }
 
@@ -65,5 +70,10 @@ export class ExtensionFracture extends Data {
             // Sigma 1 can be oriented in two opposite directions, thus to calculate the minimum angle we take the dot product as positive.
             default: return Math.acos(Math.abs(dot)) / Math.PI
         }
+    }
+
+    predict({ displ, strain, stress }: { displ?: Vector3; strain?: HypotheticalSolutionTensorParameters; stress?: HypotheticalSolutionTensorParameters }): number {
+        const dot = scalarProductUnitVectors({ U: stress.S3_Y, V: this.nPlane })
+        return Math.acos(Math.abs(dot))
     }
 }

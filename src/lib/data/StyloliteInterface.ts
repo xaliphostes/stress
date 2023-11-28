@@ -3,7 +3,7 @@ import { fromAnglesToNormal } from "../utils/fromAnglesToNormal"
 import { Data } from "./Data"
 import { Tokens, FractureStrategy } from "./types"
 import { HypotheticalSolutionTensorParameters } from "../geomeca"
-import { Direction } from "../utils"
+import { Direction, toInt } from "../utils"
 import { createDataArgument, createDataStatus, DataArgument, DataDescription, DataStatus } from "./DataDescription"
 import { DataFactory } from "./Factory"
 
@@ -42,6 +42,8 @@ import { DataFactory } from "./Factory"
         const result = createDataStatus()
 
         const arg: DataArgument = createDataArgument()
+        arg.toks = toks
+        arg.index = toInt(toks[0])
 
         const strike = DataDescription.getParameter(arg.setIndex(2))
 
@@ -61,7 +63,12 @@ import { DataFactory } from "./Factory"
                 // For horizontal and vertical planes the dip direction is undefined (UND) 
                 result.status = false
                 result.messages.push(`Data number ${toks[0]}, column 4: parameter for ${DataFactory.name(this)}, for a horizontal or vertical plane please set the dip direction as undefined (UND)`)  
-        }  
+        }
+
+        // Read position if any
+        if (toks[19].length !== 0) this.pos[0] = parseFloat(toks[19])
+        if (toks[20].length !== 0) this.pos[1] = parseFloat(toks[20])
+        if (toks[21].length !== 0) this.pos[2] = parseFloat(toks[21])
 
         // Convert into normal
         this.normal = fromAnglesToNormal({strike, dip, dipDirection})
@@ -85,4 +92,10 @@ import { DataFactory } from "./Factory"
             default: return Math.acos( Math.abs(dot) ) / Math.PI
         }
     }
+
+    predict({ displ, strain, stress }: { displ?: Vector3; strain?: HypotheticalSolutionTensorParameters; stress?: HypotheticalSolutionTensorParameters }): number {
+        const dot = scalarProductUnitVectors({U: stress.S1_X, V: this.normal})
+        return Math.acos( Math.abs(dot) ) / Math.PI
+    }
+
 }
