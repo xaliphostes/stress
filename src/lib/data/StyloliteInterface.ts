@@ -63,7 +63,12 @@ import { DataFactory } from "./Factory"
                 // For horizontal and vertical planes the dip direction is undefined (UND) 
                 result.status = false
                 result.messages.push(`Data number ${toks[0]}, column 4: parameter for ${DataFactory.name(this)}, for a horizontal or vertical plane please set the dip direction as undefined (UND)`)  
-        }  
+        }
+
+        // Read position if any
+        if (toks[19].length !== 0) this.pos[0] = parseFloat(toks[19])
+        if (toks[20].length !== 0) this.pos[1] = parseFloat(toks[20])
+        if (toks[21].length !== 0) this.pos[2] = parseFloat(toks[21])
 
         // Convert into normal
         this.normal = fromAnglesToNormal({strike, dip, dipDirection})
