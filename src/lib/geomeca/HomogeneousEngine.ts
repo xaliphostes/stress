@@ -32,6 +32,8 @@ export class HomogeneousEngine implements Engine {
             s1_X: this.values[0],
             s3_Y: this.values[1],
             s2_Z: this.values[2],
+            // s2_Z: this.values[2],
+            // s3_Y: this.values[1],
             Hrot: this.Hrot_
         }
     }

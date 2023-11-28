@@ -3,7 +3,7 @@ import { fromAnglesToNormal } from "../utils/fromAnglesToNormal"
 import { Data } from "./Data"
 import { Tokens, FractureStrategy } from "./types"
 import { HypotheticalSolutionTensorParameters } from "../geomeca"
-import { Direction } from "../utils"
+import { Direction, toInt } from "../utils"
 import { createDataArgument, createDataStatus, DataArgument, DataDescription, DataStatus } from "./DataDescription"
 import { DataFactory } from "./Factory"
 
@@ -42,6 +42,8 @@ import { DataFactory } from "./Factory"
         const result = createDataStatus()
 
         const arg: DataArgument = createDataArgument()
+        arg.toks = toks
+        arg.index = toInt(toks[0])
 
         const strike = DataDescription.getParameter(arg.setIndex(2))
 
@@ -85,4 +87,10 @@ import { DataFactory } from "./Factory"
             default: return Math.acos( Math.abs(dot) ) / Math.PI
         }
     }
+
+    predict({ displ, strain, stress }: { displ?: Vector3; strain?: HypotheticalSolutionTensorParameters; stress?: HypotheticalSolutionTensorParameters }): number {
+        const dot = scalarProductUnitVectors({U: stress.S1_X, V: this.normal})
+        return Math.acos( Math.abs(dot) ) / Math.PI
+    }
+
 }

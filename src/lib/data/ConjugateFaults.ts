@@ -154,6 +154,8 @@ export class ConjugateFaults extends Data {
 
     protected performOneDataLine(toks: Tokens, result: DataStatus): any {
         const arg: DataArgument = createDataArgument()
+        arg.toks = toks
+        arg.index = toInt(toks[0])
 
         const strike = DataDescription.getParameter(arg.setIndex(2))
 
